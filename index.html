@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowMate Audio Transcriber</title>
+  <meta name="theme-color" content="#0D9488">
+  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22FlowMate%20Audio%20Transcriber%22%2C%22short_name%22%3A%22Transcriber%22%2C%22start_url%22%3A%22.%2Findex.html%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23F5F3EF%22%2C%22theme_color%22%3A%22%230D9488%22%7D">
+  <style>
+    :root {
+      --bg: #F5F3EF;
+      --surface: #FFFFFF;
+      --surface-variant: #F0EEE9;
+      --primary: #0D9488;
+      --primary-hover: #0F766E;
+      --primary-light: #CCFBF1;
+      --primary-dark: #115E59;
+      --on-surface: #1E232A;
+      --on-surface-variant: #718096;
+      --border: #E2E8F0;
+      --danger: #EF4444;
+      --accent: #F59E0B;
+      --shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--on-surface);
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px 12px 40px;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Pinned Header & File Selection */
+    .pinned-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background-color: var(--bg);
+      padding-bottom: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 4px 4px;
+    }
+
+    .header-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--on-surface);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-badge {
+      font-size: 0.75rem;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--on-surface);
+      margin-bottom: 4px;
+    }
+
+    .card-sub {
+      font-size: 0.8rem;
+      color: var(--on-surface-variant);
+      line-height: 1.4;
+    }
+
+    /* File Info & Audio Controls */
+    .file-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .wave-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .file-name-col {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-name-text {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--on-surface);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-size-text {
+      font-size: 0.78rem;
+      color: var(--on-surface-variant);
+      margin-top: 2px;
+    }
+
+    /* Scrubber & SeekBar */
+    .scrubber-container {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    .seek-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .seek-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    .time-indicator-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      font-family: monospace;
+    }
+
+    .time-cur {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .time-total {
+      color: var(--on-surface-variant);
+    }
+
+    /* Button Layout */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      outline: none;
+      transition: all 0.15s ease;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #FFFFFF;
+      padding: 11px 16px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      flex: 1;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      padding: 11px 16px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      flex: 1;
+    }
+
+    .btn-outline:hover {
+      background: var(--primary-light);
+    }
+
+    .btn-outline:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Input & Settings */
+    .input-group {
+      margin-bottom: 12px;
+    }
+
+    .input-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--on-surface);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .text-input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+      outline: none;
+      background: var(--surface);
+      color: var(--on-surface);
+    }
+
+    .text-input:focus {
+      border-color: var(--primary);
+    }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--border);
+      transition: .2s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Progress Notification */
+    .progress-card {
+      display: none;
+      text-align: center;
+      padding: 16px;
+    }
+
+    .spinner {
+      border: 3px solid rgba(13, 148, 136, 0.2);
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .progress-text {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--on-surface);
+    }
+
+    /* Rebuilt Audio Card */
+    .rebuilt-card {
+      display: none;
+      border: 1px solid var(--primary);
+      background: var(--primary-light);
+    }
+
+    /* Sentence List */
+    .sentences-card {
+      display: none;
+    }
+
+    .sentence-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .sentence-item.deleted {
+      background: var(--surface-variant);
+      border-color: var(--danger);
+      opacity: 0.7;
+    }
+
+    .sentence-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sentence-time-badge {
+      font-size: 0.75rem;
+      font-family: monospace;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .sentence-item.deleted .sentence-time-badge {
+      color: var(--danger);
+    }
+
+    .sentence-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-link {
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 2px 4px;
+    }
+
+    .action-play {
+      color: var(--primary);
+    }
+
+    .action-cut {
+      color: var(--danger);
+    }
+
+    .action-undo {
+      color: var(--primary);
+    }
+
+    .sentence-text {
+      font-size: 0.9rem;
+      line-height: 1.45;
+      color: var(--on-surface);
+      direction: auto;
+    }
+
+    .sentence-item.deleted .sentence-text {
+      text-decoration: line-through;
+      color: var(--on-surface-variant);
+    }
+
+    /* Unified Transcript Box */
+    .unified-card {
+      display: none;
+    }
+
+    .unified-textarea {
+      width: 100%;
+      height: 180px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 10px;
+      font-family: monospace;
+      font-size: 0.82rem;
+      background: var(--surface-variant);
+      color: var(--on-surface);
+      resize: vertical;
+      line-height: 1.5;
+      direction: auto;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(30, 35, 42, 0.9);
+      color: #FFFFFF;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      z-index: 1000;
+      opacity: 0;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- Pinned Header & File Selection -->
+    <div class="pinned-header">
+      <div class="header-bar">
+        <div class="header-title">
+          <span>Audio File Transcriber</span>
+          <span class="header-badge">PWA</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="file-meta-row">
+          <div class="wave-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/>
+            </svg>
+          </div>
+          <div class="file-name-col">
+            <div class="file-name-text" id="fileNameText">Select Audio File</div>
+            <div class="file-size-text" id="fileSizeText">MP3, M4A, WAV, AAC (up to 25 MB)</div>
+          </div>
+        </div>
+
+        <!-- Scrubber & Time Indicator -->
+        <div class="scrubber-container" id="scrubberContainer">
+          <input type="range" class="seek-slider" id="seekSlider" min="0" max="100" value="0" step="0.01">
+          <div class="time-indicator-row">
+            <span class="time-cur" id="curTimeText">00:00.000</span>
+            <span class="time-total" id="totalTimeText">00:00.000</span>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <input type="file" id="audioFileInput" accept="audio/*" style="display: none;">
+          <button class="btn-primary" id="chooseFileBtn">Choose File</button>
+          <button class="btn-outline" id="playPreviewBtn" style="display: none;">Play Preview</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Groq API Key Configuration -->
+    <div class="card">
+      <div class="input-group">
+        <label class="input-label" for="apiKeyInput">Groq API Key</label>
+        <input type="password" class="text-input" id="apiKeyInput" placeholder="gsk_..." autocomplete="off">
+      </div>
+      <div class="switch-row">
+        <div>
+          <div class="card-title">Smart AI Cleanup</div>
+          <div class="card-sub">Format spoken dialect, fix punctuation & technical words</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="smartCleanupToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Main Action Button -->
+    <button class="btn-primary" id="transcribeBtn" style="padding: 14px; font-size: 1rem;" disabled>
+      Transcribe Audio
+    </button>
+
+    <!-- Progress Card -->
+    <div class="card progress-card" id="progressCard">
+      <div class="spinner"></div>
+      <div class="progress-text" id="progressText">Processing audio...</div>
+    </div>
+
+    <!-- Rebuilt Audio Card (Appears after Cuts) -->
+    <div class="card rebuilt-card" id="rebuiltCard">
+      <div class="card-title" style="color: var(--primary-dark);">Edited Audio Ready</div>
+      <div class="card-sub" id="rebuiltMetaText" style="color: var(--primary-dark); margin-bottom: 12px;">Audio successfully spliced and trimmed</div>
+      <div class="btn-row">
+        <button class="btn-primary" id="playEditedBtn">Play Edited Audio</button>
+        <button class="btn-outline" id="downloadEditedBtn" style="background: white;">Save to Downloads</button>
+      </div>
+    </div>
+
+    <!-- Interactive Sentences List (Delete Sentences) -->
+    <div class="card sentences-card" id="sentencesCard">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <div class="card-title">Interactive Sentence List</div>
+        <div style="font-size: 0.8rem; font-weight: 700; color: var(--primary);" id="sentenceCountBadge">0 active / 0 total</div>
+      </div>
+      <div class="card-sub" style="margin-bottom: 12px;">Tap ✕ Cut on any sentence to remove it from audio and text.</div>
+
+      <div id="sentencesListContainer"></div>
+
+      <button class="btn-primary" id="rebuildAudioBtn" style="background: var(--accent); color: #fff; width: 100%; margin-top: 8px; display: none;">
+        Apply Cuts & Rebuild Audio
+      </button>
+    </div>
+
+    <!-- Unified Transcript Box (Bulk Copy) -->
+    <div class="card unified-card" id="unifiedCard">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <div class="card-title">Full Transcript with Timestamps</div>
+        <button class="action-link action-cut" id="clearBtn" style="font-size: 0.8rem;">Clear</button>
+      </div>
+      <div class="card-sub" style="margin-bottom: 10px;">All sentences formatted with timestamps for one-click bulk copy:</div>
+      <textarea class="unified-textarea" id="unifiedTextArea" readonly></textarea>
+      <div class="btn-row" style="margin-top: 10px;">
+        <button class="btn-primary" id="copyAllWithTsBtn">Copy All with Timestamps</button>
+        <button class="btn-outline" id="copyCleanTextBtn">Copy Text Only</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Audio Element for Preview -->
+  <audio id="audioPlayer"></audio>
+  <audio id="editedAudioPlayer"></audio>
+
+  <script>
+    // --- State Management ---
+    let selectedFile = null;
+    let selectedFileUrl = null;
+    let currentSegments = [];
+    const deletedSegmentIds = new Set();
+    let editedAudioBlob = null;
+    let editedAudioUrl = null;
+    let isUserSeeking = false;
+
+    // --- DOM Elements ---
+    const chooseFileBtn = document.getElementById('chooseFileBtn');
+    const audioFileInput = document.getElementById('audioFileInput');
+    const fileNameText = document.getElementById('fileNameText');
+    const fileSizeText = document.getElementById('fileSizeText');
+    const playPreviewBtn = document.getElementById('playPreviewBtn');
+    const scrubberContainer = document.getElementById('scrubberContainer');
+    const seekSlider = document.getElementById('seekSlider');
+    const curTimeText = document.getElementById('curTimeText');
+    const totalTimeText = document.getElementById('totalTimeText');
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const smartCleanupToggle = document.getElementById('smartCleanupToggle');
+    const transcribeBtn = document.getElementById('transcribeBtn');
+    const progressCard = document.getElementById('progressCard');
+    const progressText = document.getElementById('progressText');
+    const sentencesCard = document.getElementById('sentencesCard');
+    const sentencesListContainer = document.getElementById('sentencesListContainer');
+    const sentenceCountBadge = document.getElementById('sentenceCountBadge');
+    const rebuildAudioBtn = document.getElementById('rebuildAudioBtn');
+    const rebuiltCard = document.getElementById('rebuiltCard');
+    const rebuiltMetaText = document.getElementById('rebuiltMetaText');
+    const playEditedBtn = document.getElementById('playEditedBtn');
+    const downloadEditedBtn = document.getElementById('downloadEditedBtn');
+    const unifiedCard = document.getElementById('unifiedCard');
+    const unifiedTextArea = document.getElementById('unifiedTextArea');
+    const copyAllWithTsBtn = document.getElementById('copyAllWithTsBtn');
+    const copyCleanTextBtn = document.getElementById('copyCleanTextBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const toastEl = document.getElementById('toast');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const editedAudioPlayer = document.getElementById('editedAudioPlayer');
+
+    // --- Local Storage API Key Persistence ---
+    const SAVED_KEY = localStorage.getItem('flowmate_groq_key');
+    if (SAVED_KEY) apiKeyInput.value = SAVED_KEY;
+    apiKeyInput.addEventListener('input', () => {
+      localStorage.setItem('flowmate_groq_key', apiKeyInput.value.trim());
+    });
+
+    // --- Toast Notification ---
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      setTimeout(() => toastEl.classList.remove('show'), 2500);
+    }
+
+    // --- Timestamp Formatting (mm:ss.mmm) ---
+    function formatTimestamp(seconds) {
+      const s = Math.max(0, Number(seconds) || 0);
+      const totalMs = Math.round(s * 1000);
+      const mins = Math.floor(totalMs / 60000);
+      const secs = Math.floor((totalMs % 60000) / 1000);
+      const ms = totalMs % 1000;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes <= 0) return '0 B';
+      const mb = bytes / (1024 * 1024);
+      if (mb >= 1) return mb.toFixed(1) + ' MB';
+      const kb = bytes / 1024;
+      return kb.toFixed(1) + ' KB';
+    }
+
+    // --- File Selection ---
+    chooseFileBtn.addEventListener('click', () => audioFileInput.click());
+
+    audioFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (file.size > 25 * 1024 * 1024) {
+        showToast('File size exceeds 25 MB limit');
+        return;
+      }
+
+      stopAllPlayback();
+      selectedFile = file;
+
+      if (selectedFileUrl) URL.revokeObjectURL(selectedFileUrl);
+      selectedFileUrl = URL.createObjectURL(file);
+      audioPlayer.src = selectedFileUrl;
+
+      fileNameText.textContent = file.name;
+      fileSizeText.textContent = `Size: ${formatFileSize(file.size)}`;
+
+      playPreviewBtn.style.display = 'inline-flex';
+      playPreviewBtn.textContent = 'Play Preview';
+      transcribeBtn.disabled = false;
+
+      // Reset results & state
+      currentSegments = [];
+      deletedSegmentIds.clear();
+      editedAudioBlob = null;
+      sentencesCard.style.display = 'none';
+      unifiedCard.style.display = 'none';
+      rebuiltCard.style.display = 'none';
+
+      audioPlayer.onloadedmetadata = () => {
+        const dur = audioPlayer.duration || 0;
+        seekSlider.max = dur;
+        seekSlider.value = 0;
+        curTimeText.textContent = '00:00.000';
+        totalTimeText.textContent = formatTimestamp(dur);
+        fileSizeText.textContent = `Size: ${formatFileSize(file.size)} | Duration: ${formatTimestamp(dur)}`;
+        scrubberContainer.style.display = 'flex';
+      };
+    });
+
+    // --- Audio Scrubber & Controls ---
+    function stopAllPlayback() {
+      audioPlayer.pause();
+      editedAudioPlayer.pause();
+      playPreviewBtn.textContent = 'Play Preview';
+      playEditedBtn.textContent = 'Play Edited Audio';
+    }
+
+    playPreviewBtn.addEventListener('click', () => {
+      if (!audioPlayer.src) return;
+      if (!audioPlayer.paused) {
+        audioPlayer.pause();
+        playPreviewBtn.textContent = 'Resume Preview';
+      } else {
+        editedAudioPlayer.pause();
+        playEditedBtn.textContent = 'Play Edited Audio';
+        audioPlayer.play();
+        playPreviewBtn.textContent = 'Pause Preview';
+      }
+    });
+
+    audioPlayer.addEventListener('timeupdate', () => {
+      if (!isUserSeeking) {
+        seekSlider.value = audioPlayer.currentTime;
+        curTimeText.textContent = formatTimestamp(audioPlayer.currentTime);
+      }
+    });
+
+    audioPlayer.addEventListener('ended', () => {
+      playPreviewBtn.textContent = 'Play Preview';
+      seekSlider.value = 0;
+      curTimeText.textContent = '00:00.000';
+    });
+
+    seekSlider.addEventListener('input', () => {
+      isUserSeeking = true;
+      curTimeText.textContent = formatTimestamp(seekSlider.value);
+    });
+
+    seekSlider.addEventListener('change', () => {
+      isUserSeeking = false;
+      audioPlayer.currentTime = Number(seekSlider.value);
+    });
+
+    // --- Transcription Processing ---
+    transcribeBtn.addEventListener('click', async () => {
+      if (!selectedFile) {
+        showToast('Please choose an audio file first');
+        return;
+      }
+
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) {
+        showToast('Please enter your Groq API key');
+        apiKeyInput.focus();
+        return;
+      }
+
+      stopAllPlayback();
+      transcribeBtn.disabled = true;
+      chooseFileBtn.disabled = true;
+      progressCard.style.display = 'block';
+      progressText.textContent = 'Transcribing with Whisper (Word-Level)...';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('model', 'whisper-large-v3');
+        formData.append('response_format', 'verbose_json');
+        formData.append('language', 'ar');
+        formData.append('timestamp_granularities[]', 'word');
+        formData.append('timestamp_granularities[]', 'segment');
+        formData.append('prompt', 'ازيك يا باشا، عامل ايه؟ احنا شغالين وبنظبط الـ features وبنعمل update للـ application قبل الـ meeting وكله تمام.');
+
+        const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+          body: formData
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `HTTP ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        progressText.textContent = 'Segmenting sentences...';
+
+        // Word-level or segment fallback parsing
+        let parsed = [];
+        if (data.words && data.words.length > 0) {
+          parsed = groupWordsIntoSentences(data.words);
+        } else if (data.segments && data.segments.length > 0) {
+          let nextId = 0;
+          for (const s of data.segments) {
+            const subs = splitSegmentIntoSentences(s, nextId);
+            parsed.push(...subs);
+            nextId += subs.length;
+          }
+        } else if (data.text) {
+          parsed = [{ id: 0, start: 0, end: audioPlayer.duration || 1, text: data.text.trim() }];
+        }
+
+        // Optional Smart AI Cleanup via Llama 3.1
+        if (smartCleanupToggle.checked && data.text) {
+          progressText.textContent = 'Polishing transcript with Smart AI...';
+          try {
+            const cleanupResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: 'llama-3.1-8b-instant',
+                temperature: 0.0,
+                messages: [
+                  {
+                    role: 'system',
+                    content: 'You are an Egyptian Arabic Speech-to-Text proofreader. Keep Egyptian dialect (عامية مصرية), English technical terms in Latin (e.g. app, feature), fix grammar and typos. Return ONLY the cleaned transcript.'
+                  },
+                  { role: 'user', content: data.text }
+                ]
+              })
+            });
+            if (cleanupResp.ok) {
+              const cData = await cleanupResp.json();
+              const polishedText = cData.choices?.[0]?.message?.content?.trim();
+              if (polishedText) {
+                if (parsed.length === 1) parsed[0].text = polishedText;
+              }
+            }
+          } catch (_) {}
+        }
+
+        currentSegments = parsed;
+        deletedSegmentIds.clear();
+        renderSentencesList();
+        showToast('Transcription completed!');
+      } catch (err) {
+        showToast(err.message || 'Transcription failed');
+      } finally {
+        progressCard.style.display = 'none';
+        transcribeBtn.disabled = false;
+        chooseFileBtn.disabled = false;
+      }
+    });
+
+    // --- Dynamic Sentence Boundary Grouping ---
+    function groupWordsIntoSentences(words) {
+      if (!words || words.length === 0) return [];
+      const sentences = [];
+      let curWords = [];
+      let segId = 0;
+
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i];
+        curWords.push(w);
+
+        const wordText = (w.word || '').trim();
+        const hasTerminator = /[.؟!?:؛;]$/.test(wordText);
+        const isComma = /[,،]$/.test(wordText);
+        const nextW = words[i + 1];
+        const pauseToNext = nextW ? (nextW.start - w.end) : 0;
+        const curDuration = w.end - curWords[0].start;
+
+        const shouldSplit = hasTerminator ||
+          (isComma && (pauseToNext >= 0.25 || curWords.length >= 4)) ||
+          (pauseToNext >= 0.45 && curWords.length >= 2) ||
+          (curDuration >= 6.0 && curWords.length >= 4) ||
+          (!nextW);
+
+        if (shouldSplit) {
+          const text = curWords.map(x => x.word.trim()).join(' ').trim();
+          if (text) {
+            sentences.push({
+              id: segId++,
+              start: curWords[0].start,
+              end: w.end,
+              text: text
+            });
+          }
+          curWords = [];
+        }
+      }
+      return sentences;
+    }
+
+    function splitSegmentIntoSentences(seg, startId) {
+      const text = (seg.text || '').trim();
+      const dur = seg.end - seg.start;
+      if (dur <= 3.5) return [{ id: startId, start: seg.start, end: seg.end, text: text }];
+
+      const parts = text.split(/(?<=[.؟!?:؛\n])\s+|(?<=[,،])\s+/).filter(x => x.trim().length > 0);
+      if (parts.length <= 1) return [{ id: startId, start: seg.start, end: seg.end, text: text }];
+
+      const totalChars = parts.reduce((acc, p) => acc + p.length, 0);
+      let curStart = seg.start;
+      const result = [];
+      let curId = startId;
+
+      for (const p of parts) {
+        const pDur = dur * (p.length / totalChars);
+        const pEnd = Math.min(seg.end, curStart + pDur);
+        result.push({ id: curId++, start: curStart, end: pEnd, text: p.trim() });
+        curStart = pEnd;
+      }
+      return result;
+    }
+
+    // --- Interactive Sentence List Rendering ---
+    function renderSentencesList() {
+      sentencesListContainer.innerHTML = '';
+      if (currentSegments.length === 0) {
+        sentencesCard.style.display = 'none';
+        unifiedCard.style.display = 'none';
+        return;
+      }
+
+      sentencesCard.style.display = 'block';
+      unifiedCard.style.display = 'block';
+
+      const activeCount = currentSegments.length - deletedSegmentIds.size;
+      sentenceCountBadge.textContent = `${activeCount} active / ${currentSegments.length} total`;
+
+      rebuildAudioBtn.style.display = deletedSegmentIds.size > 0 ? 'block' : 'none';
+      rebuildAudioBtn.textContent = `Apply Cuts & Rebuild Audio (${deletedSegmentIds.size} cut)`;
+
+      currentSegments.forEach(seg => {
+        const isDeleted = deletedSegmentIds.has(seg.id);
+        const item = document.createElement('div');
+        item.className = `sentence-item ${isDeleted ? 'deleted' : ''}`;
+
+        const topRow = document.createElement('div');
+        topRow.className = 'sentence-top-row';
+
+        const badge = document.createElement('span');
+        badge.className = 'sentence-time-badge';
+        badge.textContent = `[${formatTimestamp(seg.start)} → ${formatTimestamp(seg.end)}]`;
+        topRow.appendChild(badge);
+
+        const actions = document.createElement('div');
+        actions.className = 'sentence-actions';
+
+        const playBtn = document.createElement('button');
+        playBtn.className = 'action-link action-play';
+        playBtn.textContent = '▶ Play';
+        playBtn.onclick = () => playSingleSegment(seg);
+        actions.appendChild(playBtn);
+
+        const cutBtn = document.createElement('button');
+        cutBtn.className = `action-link ${isDeleted ? 'action-undo' : 'action-cut'}`;
+        cutBtn.textContent = isDeleted ? '↩ Undo' : '✕ Cut';
+        cutBtn.onclick = () => {
+          if (isDeleted) {
+            deletedSegmentIds.delete(seg.id);
+          } else {
+            if (currentSegments.length - deletedSegmentIds.size <= 1) {
+              showToast('Cannot delete all sentences');
+              return;
+            }
+            deletedSegmentIds.add(seg.id);
+          }
+          renderSentencesList();
+          updateUnifiedTranscript();
+        };
+        actions.appendChild(cutBtn);
+
+        topRow.appendChild(actions);
+        item.appendChild(topRow);
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'sentence-text';
+        textDiv.textContent = seg.text;
+        item.appendChild(textDiv);
+
+        sentencesListContainer.appendChild(item);
+      });
+
+      updateUnifiedTranscript();
+    }
+
+    function playSingleSegment(seg) {
+      if (!audioPlayer.src) return;
+      stopAllPlayback();
+      audioPlayer.currentTime = seg.start;
+      audioPlayer.play();
+      playPreviewBtn.textContent = 'Pause Preview';
+
+      const durMs = Math.max(400, (seg.end - seg.start) * 1000);
+      setTimeout(() => {
+        if (!audioPlayer.paused && Math.abs(audioPlayer.currentTime - seg.end) < 0.6) {
+          audioPlayer.pause();
+          playPreviewBtn.textContent = 'Resume Preview';
+        }
+      }, durMs);
+    }
+
+    function updateUnifiedTranscript() {
+      const kept = currentSegments.filter(s => !deletedSegmentIds.has(s.id));
+      unifiedTextArea.value = kept.map(s => `[${formatTimestamp(s.start)} → ${formatTimestamp(s.end)}] ${s.text}`).join('\n');
+    }
+
+    // --- Audio Rebuilding via Web Audio API ---
+    rebuildAudioBtn.addEventListener('click', async () => {
+      if (deletedSegmentIds.size === 0) return;
+      stopAllPlayback();
+      progressCard.style.display = 'block';
+      progressText.textContent = 'Decoding and splicing audio in browser...';
+
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const arrayBuf = await selectedFile.arrayBuffer();
+        const decodedBuf = await audioCtx.decodeAudioData(arrayBuf);
+
+        const keptSegs = currentSegments.filter(s => !deletedSegmentIds.has(s.id));
+        const sampleRate = decodedBuf.sampleRate;
+        const numChannels = decodedBuf.numberOfChannels;
+
+        let totalSamples = 0;
+        const sliceRanges = keptSegs.map(seg => {
+          const startSample = Math.max(0, Math.floor(seg.start * sampleRate));
+          const endSample = Math.min(decodedBuf.length, Math.floor(seg.end * sampleRate));
+          const len = Math.max(0, endSample - startSample);
+          totalSamples += len;
+          return { startSample, len };
+        });
+
+        if (totalSamples === 0) throw new Error('No audio kept');
+
+        const splicedBuf = audioCtx.createBuffer(numChannels, totalSamples, sampleRate);
+        for (let ch = 0; ch < numChannels; ch++) {
+          const srcData = decodedBuf.getChannelData(ch);
+          const destData = splicedBuf.getChannelData(ch);
+          let offset = 0;
+          for (const r of sliceRanges) {
+            destData.set(srcData.subarray(r.startSample, r.startSample + r.len), offset);
+            offset += r.len;
+          }
+        }
+
+        const wavBlob = audioBufferToWav(splicedBuf);
+        if (editedAudioUrl) URL.revokeObjectURL(editedAudioUrl);
+        editedAudioBlob = wavBlob;
+        editedAudioUrl = URL.createObjectURL(wavBlob);
+        editedAudioPlayer.src = editedAudioUrl;
+
+        let curStart = 0;
+        const recalculated = keptSegs.map(seg => {
+          const dur = Math.max(0.05, seg.end - seg.start);
+          const newEnd = curStart + dur;
+          const updated = { id: seg.id, start: curStart, end: newEnd, text: seg.text };
+          curStart = newEnd;
+          return updated;
+        });
+
+        currentSegments = recalculated;
+        deletedSegmentIds.clear();
+        renderSentencesList();
+
+        rebuiltMetaText.textContent = `Duration: ${formatTimestamp(curStart)} | Size: ${formatFileSize(wavBlob.size)}`;
+        rebuiltCard.style.display = 'block';
+        showToast('Audio spliced and rebuilt successfully!');
+      } catch (err) {
+        showToast('Audio rebuild error: ' + err.message);
+      } finally {
+        progressCard.style.display = 'none';
+      }
+    });
+
+    // --- Audio Rebuilt Play & Download ---
+    playEditedBtn.addEventListener('click', () => {
+      if (!editedAudioPlayer.src) return;
+      if (!editedAudioPlayer.paused) {
+        editedAudioPlayer.pause();
+        playEditedBtn.textContent = 'Play Edited Audio';
+      } else {
+        audioPlayer.pause();
+        playPreviewBtn.textContent = 'Resume Preview';
+        editedAudioPlayer.play();
+        playEditedBtn.textContent = 'Pause Edited Audio';
+      }
+    });
+
+    editedAudioPlayer.addEventListener('ended', () => {
+      playEditedBtn.textContent = 'Play Edited Audio';
+    });
+
+    downloadEditedBtn.addEventListener('click', () => {
+      if (!editedAudioBlob) return;
+      const base = (selectedFile?.name || "audio").replace(/\.[^/.]+$/, "");
+      const a = document.createElement('a');
+      a.href = editedAudioUrl;
+      a.download = `${base}_edited.wav`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast('Download started!');
+    });
+
+    // --- Unified Copy Actions ---
+    copyAllWithTsBtn.addEventListener('click', () => {
+      const txt = unifiedTextArea.value;
+      if (txt) {
+        navigator.clipboard.writeText(txt).then(() => showToast('Copied transcript with timestamps!'));
+      }
+    });
+
+    copyCleanTextBtn.addEventListener('click', () => {
+      const kept = currentSegments.filter(s => !deletedSegmentIds.has(s.id));
+      const clean = kept.map(s => s.text.trim()).join(' ');
+      if (clean) {
+        navigator.clipboard.writeText(clean).then(() => showToast('Copied clean text!'));
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      currentSegments = [];
+      deletedSegmentIds.clear();
+      editedAudioBlob = null;
+      sentencesCard.style.display = 'none';
+      unifiedCard.style.display = 'none';
+      rebuiltCard.style.display = 'none';
+      stopAllPlayback();
+    });
+
+    // --- Helper: Convert AudioBuffer to WAV Blob ---
+    function audioBufferToWav(buffer) {
+      const numOfChan = buffer.numberOfChannels;
+      const length = buffer.length * numOfChan * 2 + 44;
+      const out = new DataView(new ArrayBuffer(length));
+      const channels = [];
+      let offset = 0;
+      let pos = 0;
+
+      function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
+      function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
+
+      setUint32(0x46464952);
+      setUint32(length - 8);
+      setUint32(0x45564157);
+
+      setUint32(0x20746d66);
+      setUint32(16);
+      setUint16(1);
+      setUint16(numOfChan);
+      setUint32(buffer.sampleRate);
+      setUint32(buffer.sampleRate * 2 * numOfChan);
+      setUint16(numOfChan * 2);
+      setUint16(16);
+
+      setUint32(0x61746164);
+      setUint32(length - pos - 4);
+
+      for (let i = 0; i < buffer.numberOfChannels; i++) {
+        channels.push(buffer.getChannelData(i));
+      }
+
+      while (offset < buffer.length) {
+        for (let i = 0; i < numOfChan; i++) {
+          let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+          sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+          out.setInt16(pos, sample, true);
+          pos += 2;
+        }
+        offset++;
+      }
+
+      return new Blob([out.buffer], { type: 'audio/wav' });
+    }
+  </script>
+</body>
+</html>
