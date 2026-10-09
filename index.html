@@ -2,10 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>FlowMate Audio Transcriber</title>
-  <meta name="theme-color" content="#0D9488">
-  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22FlowMate%20Audio%20Transcriber%22%2C%22short_name%22%3A%22Transcriber%22%2C%22start_url%22%3A%22.%2Findex.html%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23F5F3EF%22%2C%22theme_color%22%3A%22%230D9488%22%7D">
+  <meta name="description" content="Transcribe Arabic audio with accurate word-level timing.">
+  <meta name="theme-color" content="#0D9488" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0B1F1D" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Transcriber">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <style>
     :root {
       --bg: #F5F3EF;
@@ -15,75 +24,130 @@
       --primary-hover: #0F766E;
       --primary-light: #CCFBF1;
       --primary-dark: #115E59;
+      --on-primary: #FFFFFF;
       --on-surface: #1E232A;
-      --on-surface-variant: #718096;
+      --on-surface-variant: #66707F;
       --border: #E2E8F0;
-      --danger: #EF4444;
+      --danger: #DC2626;
       --accent: #F59E0B;
+      --warn-bg: #FEF3C7;
+      --warn-border: #F59E0B;
+      --warn-text: #92400E;
       --shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
       --radius: 16px;
+      --header-bg: #0D9488;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Arabic", "Noto Naskh Arabic", Helvetica, Arial, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0B1F1D;
+        --surface: #12292B;
+        --surface-variant: #0F2224;
+        --primary: #2DD4BF;
+        --primary-hover: #5EEAD4;
+        --primary-light: #123C3A;
+        --primary-dark: #99F6E4;
+        --on-primary: #06201D;
+        --on-surface: #E7F0EF;
+        --on-surface-variant: #93A8A6;
+        --border: #21403F;
+        --danger: #F87171;
+        --warn-bg: #3B2F0E;
+        --warn-border: #B7791F;
+        --warn-text: #FCD34D;
+        --shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        --header-bg: #0B1F1D;
+      }
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       -webkit-tap-highlight-color: transparent;
     }
 
+    html {
+      -webkit-text-size-adjust: 100%;
+      background: var(--header-bg);
+    }
+
     body {
+      font-family: var(--ui-font);
       background-color: var(--bg);
       color: var(--on-surface);
-      display: flex;
-      justify-content: center;
       min-height: 100vh;
-      padding: 16px 12px 40px;
+      min-height: 100dvh;
+      overscroll-behavior-y: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
     }
+
+    textarea, input[type="text"], input[type="password"], [data-selectable] {
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
+
+    /* ---------- App bar (native-style, respects the status bar / notch) ---------- */
+    .app-bar {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      background: var(--header-bg);
+      color: #fff;
+      padding: calc(var(--sat) + 10px) calc(var(--sar) + 16px) 12px calc(var(--sal) + 16px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .app-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.1px;
+    }
+    .app-sub {
+      font-size: 0.72rem;
+      opacity: 0.8;
+      margin-top: 1px;
+    }
+    .app-bar-actions { display: flex; gap: 8px; align-items: center; }
+    .chip-btn {
+      background: rgba(255,255,255,0.18);
+      color: #fff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.8rem;
+      min-height: 36px;
+      display: none;
+    }
+    .chip-btn.show { display: inline-flex; }
+    .offline-dot {
+      display: none;
+      font-size: 0.7rem;
+      background: var(--accent);
+      color: #1E232A;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-weight: 700;
+    }
+    body.offline .offline-dot { display: inline-block; }
 
     .app-container {
       width: 100%;
       max-width: 600px;
+      margin: 0 auto;
+      padding: 14px calc(var(--sar) + 12px) calc(var(--sab) + 12px) calc(var(--sal) + 12px);
       display: flex;
       flex-direction: column;
       gap: 14px;
-    }
-
-    /* Pinned Header & File Selection */
-    .pinned-header {
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      background-color: var(--bg);
-      padding-bottom: 6px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .header-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 4px 4px;
-    }
-
-    .header-title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--on-surface);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .header-badge {
-      font-size: 0.75rem;
-      background: var(--primary-light);
-      color: var(--primary-dark);
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-weight: 600;
     }
 
     .card {
@@ -93,572 +157,363 @@
       box-shadow: var(--shadow);
       border: 1px solid var(--border);
     }
+    .card-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
+    .card-sub { font-size: 0.8rem; color: var(--on-surface-variant); line-height: 1.45; }
 
-    .card-title {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--on-surface);
-      margin-bottom: 4px;
-    }
-
-    .card-sub {
-      font-size: 0.8rem;
-      color: var(--on-surface-variant);
-      line-height: 1.4;
-    }
-
-    /* File Info & Audio Controls */
-    .file-meta-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
+    /* ---------- File card ---------- */
+    .file-meta-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
     .wave-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: var(--primary-light);
-      color: var(--primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--primary-light); color: var(--primary);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-
-    .file-name-col {
-      flex: 1;
-      min-width: 0;
-    }
-
+    .file-name-col { flex: 1; min-width: 0; }
     .file-name-text {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--on-surface);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 0.95rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      direction: auto; text-align: start;
     }
+    .file-size-text { font-size: 0.78rem; color: var(--on-surface-variant); margin-top: 2px; }
 
-    .file-size-text {
-      font-size: 0.78rem;
-      color: var(--on-surface-variant);
-      margin-top: 2px;
-    }
-
-    /* Scrubber & SeekBar */
-    .scrubber-container {
-      display: none;
-      flex-direction: column;
-      gap: 4px;
-      margin-bottom: 12px;
-    }
-
+    .scrubber-container { display: none; flex-direction: column; gap: 6px; margin-bottom: 12px; }
     .seek-slider {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 6px;
-      border-radius: 999px;
-      background: var(--border);
-      outline: none;
-      cursor: pointer;
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 28px; background: transparent; outline: none; cursor: pointer;
+      direction: ltr;
     }
-
+    .seek-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: var(--border); }
+    .seek-slider::-moz-range-track { height: 6px; border-radius: 999px; background: var(--border); }
     .seek-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--primary);
-      cursor: pointer;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%;
+      background: var(--primary); box-shadow: 0 1px 4px rgba(0,0,0,0.3);
     }
+    .seek-slider::-moz-range-thumb { width: 22px; height: 22px; border: none; border-radius: 50%; background: var(--primary); }
+    .time-indicator-row { display: flex; justify-content: space-between; font-size: 0.75rem; font-family: ui-monospace, Menlo, Consolas, monospace; direction: ltr; }
+    .time-cur { color: var(--primary); font-weight: 700; }
+    .time-total { color: var(--on-surface-variant); }
 
-    .time-indicator-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.75rem;
-      font-family: monospace;
-    }
-
-    .time-cur {
-      color: var(--primary);
-      font-weight: 700;
-    }
-
-    .time-total {
-      color: var(--on-surface-variant);
-    }
-
-    /* Button Layout */
-    .btn-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    button {
-      cursor: pointer;
-      border: none;
-      outline: none;
-      transition: all 0.15s ease;
-      font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
+    /* ---------- Buttons ---------- */
+    button { font-family: inherit; cursor: pointer; border: none; outline: none; font-weight: 600;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      transition: transform 0.08s ease, background 0.15s ease, opacity 0.15s ease; }
+    button:active:not(:disabled) { transform: scale(0.97); }
+    button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .btn-primary {
-      background: var(--primary);
-      color: #FFFFFF;
-      padding: 11px 16px;
-      border-radius: 12px;
-      font-size: 0.88rem;
-      flex: 1;
+      background: var(--primary); color: var(--on-primary);
+      padding: 12px 16px; min-height: 48px; border-radius: 14px; font-size: 0.92rem; flex: 1;
     }
-
-    .btn-primary:hover {
-      background: var(--primary-hover);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn-outline {
-      background: transparent;
-      color: var(--primary);
-      border: 1px solid var(--primary);
-      padding: 11px 16px;
-      border-radius: 12px;
-      font-size: 0.88rem;
-      flex: 1;
+      background: transparent; color: var(--primary); border: 1.5px solid var(--primary);
+      padding: 12px 16px; min-height: 48px; border-radius: 14px; font-size: 0.92rem; flex: 1;
     }
+    .btn-outline:hover { background: var(--primary-light); }
+    .btn-outline:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-danger-text { background: none; color: var(--danger); padding: 8px 10px; min-height: 40px; font-size: 0.82rem; }
+    .btn-accent { background: var(--accent); color: #1E232A; }
 
-    .btn-outline:hover {
-      background: var(--primary-light);
-    }
-
-    .btn-outline:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    /* Input & Settings */
-    .input-group {
-      margin-bottom: 12px;
-    }
-
-    .input-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--on-surface);
-      margin-bottom: 6px;
-      display: block;
-    }
-
-    .text-input {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      font-size: 0.85rem;
-      outline: none;
-      background: var(--surface);
-      color: var(--on-surface);
-    }
-
-    .text-input:focus {
-      border-color: var(--primary);
-    }
-
-    .switch-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-      flex-shrink: 0;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
+    /* Sticky action bar at the bottom, above the home indicator */
+    .action-bar {
+      position: sticky;
       bottom: 0;
-      background-color: var(--border);
-      transition: .2s;
-      border-radius: 24px;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .2s;
-      border-radius: 50%;
-    }
-
-    input:checked + .slider {
-      background-color: var(--primary);
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(20px);
-    }
-
-    /* Progress Notification */
-    .progress-card {
-      display: none;
-      text-align: center;
-      padding: 16px;
-    }
-
-    .spinner {
-      border: 3px solid rgba(13, 148, 136, 0.2);
-      border-top: 3px solid var(--primary);
-      border-radius: 50%;
-      width: 28px;
-      height: 28px;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 10px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .progress-text {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--on-surface);
-    }
-
-    /* Rebuilt Audio Card */
-    .rebuilt-card {
-      display: none;
-      border: 1px solid var(--primary);
-      background: var(--primary-light);
-    }
-
-    /* Sentence List */
-    .sentences-card {
-      display: none;
-    }
-
-    .sentence-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      transition: all 0.15s ease;
-    }
-
-    .sentence-item.deleted {
-      background: var(--surface-variant);
-      border-color: var(--danger);
-      opacity: 0.7;
-    }
-
-    .sentence-top-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .sentence-time-badge {
-      font-size: 0.75rem;
-      font-family: monospace;
-      font-weight: 700;
-      color: var(--primary);
-    }
-
-    .sentence-item.deleted .sentence-time-badge {
-      color: var(--danger);
-    }
-
-    .sentence-actions {
+      z-index: 40;
       display: flex;
       gap: 8px;
+      margin: 0 -12px;
+      padding: 18px 12px calc(var(--sab) + 10px);
+      background: linear-gradient(to top, var(--bg) 72%, transparent);
     }
+    .action-bar .btn-primary:disabled { opacity: 1; background: var(--border); color: var(--on-surface-variant); box-shadow: none; }
+    .action-bar .btn-primary { box-shadow: 0 6px 18px rgba(13,148,136,0.35); font-size: 1rem; min-height: 52px; }
+    .btn-cancel { display: none; background: var(--surface); color: var(--danger); border: 1.5px solid var(--danger);
+      min-height: 52px; padding: 0 18px; border-radius: 14px; }
 
-    .action-link {
-      font-size: 0.75rem;
-      font-weight: 600;
-      cursor: pointer;
-      background: none;
-      border: none;
-      padding: 2px 4px;
+    /* ---------- Settings ---------- */
+    details.settings > summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.95rem; font-weight: 600; min-height: 32px;
     }
-
-    .action-play {
-      color: var(--primary);
+    details.settings > summary::-webkit-details-marker { display: none; }
+    details.settings > summary .chev { transition: transform 0.2s ease; color: var(--on-surface-variant); }
+    details.settings[open] > summary .chev { transform: rotate(180deg); }
+    .settings-body { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+    .input-label { font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; display: block; }
+    .text-input, select.text-input, textarea.text-input {
+      width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border);
+      font-size: 16px; /* >=16px stops iOS from zooming on focus */
+      font-family: inherit; outline: none; background: var(--surface-variant); color: var(--on-surface);
     }
+    .text-input:focus { border-color: var(--primary); }
+    textarea.text-input { min-height: 96px; resize: vertical; line-height: 1.6; direction: auto; }
+    .key-row { display: flex; gap: 8px; }
+    .key-row .text-input { flex: 1; direction: ltr; }
+    .icon-btn { background: var(--surface-variant); color: var(--on-surface); border: 1px solid var(--border);
+      border-radius: 12px; min-width: 48px; min-height: 48px; font-size: 0.8rem; }
+    .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .switch { position: relative; display: inline-block; width: 50px; height: 28px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background-color: var(--border); transition: .2s; border-radius: 28px; }
+    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(22px); }
+    input:focus-visible + .slider { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-    .action-cut {
-      color: var(--danger);
+    /* ---------- Progress ---------- */
+    .progress-card { display: none; text-align: center; padding: 16px; }
+    .spinner { border: 3px solid rgba(13, 148, 136, 0.2); border-top: 3px solid var(--primary); border-radius: 50%;
+      width: 28px; height: 28px; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-text { font-size: 0.88rem; font-weight: 600; }
+    .progress-bar { height: 6px; border-radius: 999px; background: var(--border); margin-top: 10px; overflow: hidden; display: none; }
+    .progress-bar > div { height: 100%; width: 0; background: var(--primary); transition: width 0.15s linear; }
+
+    /* ---------- Edited audio ---------- */
+    .rebuilt-card { display: none; border: 1px solid var(--primary); background: var(--primary-light); }
+
+    /* ---------- Sentences ---------- */
+    .sentences-card { display: none; }
+    .sentence-item {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px 12px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 2px;
     }
-
-    .action-undo {
-      color: var(--primary);
+    .sentence-item.doubtful { background: var(--warn-bg); border-color: var(--warn-border); }
+    .sentence-item.deleted { background: var(--surface-variant); border-color: var(--danger); opacity: 0.65; }
+    .sentence-top-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .sentence-time-badge { font-size: 0.74rem; font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; color: var(--primary); direction: ltr; }
+    .sentence-item.deleted .sentence-time-badge { color: var(--danger); }
+    .sentence-actions { display: flex; gap: 2px; }
+    .action-link { font-size: 0.8rem; font-weight: 600; background: none; padding: 8px 10px; min-height: 36px; border-radius: 10px; }
+    .action-play { color: var(--primary); }
+    .action-cut { color: var(--danger); }
+    .action-undo { color: var(--primary); }
+    .sentence-edit {
+      width: 100%; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--on-surface);
+      font-family: inherit; font-size: 1.02rem; line-height: 1.7; resize: none; overflow: hidden;
+      padding: 4px 8px; margin: 0 -8px 2px; width: calc(100% + 16px); direction: auto; text-align: start; unicode-bidi: plaintext;
     }
+    .sentence-edit:focus { background: var(--surface-variant); border-color: var(--primary); outline: none; }
+    .sentence-item.deleted .sentence-edit { text-decoration: line-through; color: var(--on-surface-variant); }
+    .tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag { font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: var(--warn-border); color: #1E232A; }
+    .pause-marker { text-align: center; font-size: 0.72rem; color: var(--on-surface-variant); margin: 2px 0 10px; }
+    .pause-marker span { background: var(--surface-variant); border-radius: 999px; padding: 3px 12px; border: 1px dashed var(--border); }
 
-    .sentence-text {
-      font-size: 0.9rem;
-      line-height: 1.45;
-      color: var(--on-surface);
-      direction: auto;
-    }
-
-    .sentence-item.deleted .sentence-text {
-      text-decoration: line-through;
-      color: var(--on-surface-variant);
-    }
-
-    /* Unified Transcript Box */
-    .unified-card {
-      display: none;
-    }
-
+    /* ---------- Unified transcript ---------- */
+    .unified-card { display: none; }
     .unified-textarea {
-      width: 100%;
-      height: 180px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      padding: 10px;
-      font-family: monospace;
-      font-size: 0.82rem;
-      background: var(--surface-variant);
-      color: var(--on-surface);
-      resize: vertical;
-      line-height: 1.5;
-      direction: auto;
+      width: 100%; height: 200px; border-radius: 12px; border: 1px solid var(--border); padding: 12px;
+      font-family: var(--ui-font); font-size: 0.95rem; background: var(--surface-variant); color: var(--on-surface);
+      resize: vertical; line-height: 1.75; direction: ltr; text-align: left; /* keeps [mm:ss.mmm → mm:ss.mmm] in order */
     }
+    .mini-note { font-size: 0.76rem; color: var(--on-surface-variant); margin-top: 8px; line-height: 1.5; }
 
-    /* Toast */
+    /* ---------- Toast / banners ---------- */
     .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: rgba(30, 35, 42, 0.9);
-      color: #FFFFFF;
-      padding: 10px 18px;
-      border-radius: 999px;
-      font-size: 0.85rem;
-      z-index: 1000;
-      opacity: 0;
-      transition: all 0.25s ease;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      pointer-events: none;
+      position: fixed; left: 50%; bottom: calc(var(--sab) + 92px);
+      transform: translateX(-50%) translateY(120px);
+      background: rgba(30, 35, 42, 0.94); color: #fff; padding: 11px 18px; border-radius: 999px;
+      font-size: 0.86rem; z-index: 1000; opacity: 0; transition: all 0.25s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2); max-width: calc(100% - 32px); text-align: center; pointer-events: none;
     }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.action { pointer-events: auto; cursor: pointer; background: var(--primary-dark); color: var(--on-primary); }
+    @media (prefers-color-scheme: dark) { .toast.action { background: var(--primary); } }
 
-    .toast.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
+    .ios-hint { display: none; border: 1px dashed var(--primary); background: var(--primary-light); color: var(--primary-dark); font-size: 0.82rem; line-height: 1.55; }
+    .ios-hint.show { display: block; }
+
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
   </style>
 </head>
 <body>
 
-  <div class="app-container">
+  <header class="app-bar">
+    <div>
+      <div class="app-title">Audio Transcriber</div>
+      <div class="app-sub">Arabic · word-level timing</div>
+    </div>
+    <div class="app-bar-actions">
+      <span class="offline-dot" id="offlineDot">Offline</span>
+      <button class="chip-btn" id="installBtn" type="button">Install app</button>
+    </div>
+  </header>
 
-    <!-- Pinned Header & File Selection -->
-    <div class="pinned-header">
-      <div class="header-bar">
-        <div class="header-title">
-          <span>Audio File Transcriber</span>
-          <span class="header-badge">PWA</span>
-        </div>
-      </div>
+  <main class="app-container">
 
-      <div class="card">
-        <div class="file-meta-row">
-          <div class="wave-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/>
-            </svg>
-          </div>
-          <div class="file-name-col">
-            <div class="file-name-text" id="fileNameText">Select Audio File</div>
-            <div class="file-size-text" id="fileSizeText">MP3, M4A, WAV, AAC (up to 25 MB)</div>
-          </div>
-        </div>
-
-        <!-- Scrubber & Time Indicator -->
-        <div class="scrubber-container" id="scrubberContainer">
-          <input type="range" class="seek-slider" id="seekSlider" min="0" max="100" value="0" step="0.01">
-          <div class="time-indicator-row">
-            <span class="time-cur" id="curTimeText">00:00.000</span>
-            <span class="time-total" id="totalTimeText">00:00.000</span>
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <input type="file" id="audioFileInput" accept="audio/*" style="display: none;">
-          <button class="btn-primary" id="chooseFileBtn">Choose File</button>
-          <button class="btn-outline" id="playPreviewBtn" style="display: none;">Play Preview</button>
-        </div>
-      </div>
+    <div class="card ios-hint" id="iosHint">
+      <b>Install on iPhone:</b> tap the Share button in Safari, then <b>Add to Home Screen</b>.
+      <div style="margin-top:8px"><button class="action-link action-undo" id="iosHintClose" type="button">Got it</button></div>
     </div>
 
-    <!-- Groq API Key Configuration -->
+    <!-- File -->
     <div class="card">
-      <div class="input-group">
-        <label class="input-label" for="apiKeyInput">Groq API Key</label>
-        <input type="password" class="text-input" id="apiKeyInput" placeholder="gsk_..." autocomplete="off">
-      </div>
-      <div class="switch-row">
-        <div>
-          <div class="card-title">Smart AI Cleanup</div>
-          <div class="card-sub">Format spoken dialect, fix punctuation & technical words</div>
+      <div class="file-meta-row">
+        <div class="wave-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></svg>
         </div>
-        <label class="switch">
-          <input type="checkbox" id="smartCleanupToggle" checked>
-          <span class="slider"></span>
-        </label>
+        <div class="file-name-col">
+          <div class="file-name-text" id="fileNameText">Select Audio File</div>
+          <div class="file-size-text" id="fileSizeText">MP3, M4A, WAV, AAC, OGG, MP4</div>
+        </div>
+      </div>
+
+      <div class="scrubber-container" id="scrubberContainer">
+        <input type="range" class="seek-slider" id="seekSlider" min="0" max="100" value="0" step="0.01" aria-label="Seek">
+        <div class="time-indicator-row">
+          <span class="time-cur" id="curTimeText">00:00.000</span>
+          <span class="time-total" id="totalTimeText">00:00.000</span>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <input type="file" id="audioFileInput" accept="audio/*,video/mp4,video/webm,.m4a,.mp3,.wav,.aac,.ogg,.opus" style="display:none">
+        <button class="btn-primary" id="chooseFileBtn" type="button">Choose File</button>
+        <button class="btn-outline" id="playPreviewBtn" type="button" style="display:none">Play Preview</button>
       </div>
     </div>
 
-    <!-- Main Action Button -->
-    <button class="btn-primary" id="transcribeBtn" style="padding: 14px; font-size: 1rem;" disabled>
-      Transcribe Audio
-    </button>
+    <!-- Settings -->
+    <details class="card settings" id="settingsCard">
+      <summary>Settings <span class="chev">▾</span></summary>
+      <div class="settings-body">
+        <div>
+          <label class="input-label" for="apiKeyInput">Groq API Key</label>
+          <div class="key-row">
+            <input type="password" class="text-input" id="apiKeyInput" placeholder="gsk_..." autocomplete="off" autocapitalize="off" spellcheck="false">
+            <button class="icon-btn" id="toggleKeyBtn" type="button" aria-label="Show or hide key">Show</button>
+          </div>
+          <div class="mini-note">Stored only on this device. It is sent only to api.groq.com.</div>
+        </div>
 
-    <!-- Progress Card -->
+        <div>
+          <label class="input-label" for="modelSelect">Model</label>
+          <select class="text-input" id="modelSelect">
+            <option value="whisper-large-v3">whisper-large-v3 (most accurate)</option>
+            <option value="whisper-large-v3-turbo">whisper-large-v3-turbo (faster)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="input-label" for="promptInput">Context prompt (helps Whisper with your vocabulary)</label>
+          <textarea class="text-input" id="promptInput" spellcheck="false"></textarea>
+          <div class="btn-row" style="margin-top:8px">
+            <button class="btn-outline" id="resetPromptBtn" type="button" style="min-height:40px;padding:6px 12px;font-size:0.8rem;flex:0 0 auto">Reset to default</button>
+          </div>
+          <div class="mini-note">Add names or terms that appear in the clip (e.g. the sheikh's name, places, book titles). Keep it short, in the same dialect as the audio.</div>
+        </div>
+
+        <div class="switch-row">
+          <div>
+            <div class="card-title">Snap timing to real speech</div>
+            <div class="card-sub">Fixes words that Whisper stretches across long silences, using the audio's own loudness. Recommended.</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="snapToggle" checked><span class="slider"></span></label>
+        </div>
+
+        <div class="switch-row">
+          <div>
+            <div class="card-title">Mark doubtful lines with ⚠ when copying</div>
+            <div class="card-sub">Adds ⚠ at the start of low-confidence lines in the copied text.</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="markToggle"><span class="slider"></span></label>
+        </div>
+      </div>
+    </details>
+
+    <!-- Progress -->
     <div class="card progress-card" id="progressCard">
       <div class="spinner"></div>
       <div class="progress-text" id="progressText">Processing audio...</div>
+      <div class="progress-bar" id="progressBar"><div id="progressFill"></div></div>
     </div>
 
-    <!-- Rebuilt Audio Card (Appears after Cuts) -->
+    <!-- Edited audio -->
     <div class="card rebuilt-card" id="rebuiltCard">
       <div class="card-title" style="color: var(--primary-dark);">Edited Audio Ready</div>
       <div class="card-sub" id="rebuiltMetaText" style="color: var(--primary-dark); margin-bottom: 12px;">Audio successfully spliced and trimmed</div>
       <div class="btn-row">
-        <button class="btn-primary" id="playEditedBtn">Play Edited Audio</button>
-        <button class="btn-outline" id="downloadEditedBtn" style="background: white;">Save to Downloads</button>
+        <button class="btn-primary" id="playEditedBtn" type="button">Play Edited Audio</button>
+        <button class="btn-outline" id="downloadEditedBtn" type="button" style="background: var(--surface);">Save / Share</button>
       </div>
     </div>
 
-    <!-- Interactive Sentences List (Delete Sentences) -->
+    <!-- Sentences -->
     <div class="card sentences-card" id="sentencesCard">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-        <div class="card-title">Interactive Sentence List</div>
-        <div style="font-size: 0.8rem; font-weight: 700; color: var(--primary);" id="sentenceCountBadge">0 active / 0 total</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <div class="card-title">Sentences</div>
+        <div style="font-size:0.8rem; font-weight:700; color:var(--primary);" id="sentenceCountBadge">0 active / 0 total</div>
       </div>
-      <div class="card-sub" style="margin-bottom: 12px;">Tap ✕ Cut on any sentence to remove it from audio and text.</div>
-
+      <div class="card-sub" style="margin-bottom:12px;">Tap a sentence to fix its text. Tap ✕ Cut to remove it from the audio and text. Yellow lines are low-confidence, so check them by ear.</div>
       <div id="sentencesListContainer"></div>
-
-      <button class="btn-primary" id="rebuildAudioBtn" style="background: var(--accent); color: #fff; width: 100%; margin-top: 8px; display: none;">
-        Apply Cuts & Rebuild Audio
-      </button>
+      <button class="btn-primary btn-accent" id="rebuildAudioBtn" type="button" style="width:100%; margin-top:8px; display:none;">Apply Cuts &amp; Rebuild Audio</button>
     </div>
 
-    <!-- Unified Transcript Box (Bulk Copy) -->
+    <!-- Unified transcript -->
     <div class="card unified-card" id="unifiedCard">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
         <div class="card-title">Full Transcript with Timestamps</div>
-        <button class="action-link action-cut" id="clearBtn" style="font-size: 0.8rem;">Clear</button>
+        <button class="btn-danger-text" id="clearBtn" type="button">Clear</button>
       </div>
-      <div class="card-sub" style="margin-bottom: 10px;">All sentences formatted with timestamps for one-click bulk copy:</div>
+      <div class="card-sub" style="margin-bottom:10px;">Same format every time: <span dir="ltr" style="font-family:ui-monospace,Menlo,monospace">[mm:ss.mmm → mm:ss.mmm] text</span></div>
       <textarea class="unified-textarea" id="unifiedTextArea" readonly></textarea>
-      <div class="btn-row" style="margin-top: 10px;">
-        <button class="btn-primary" id="copyAllWithTsBtn">Copy All with Timestamps</button>
-        <button class="btn-outline" id="copyCleanTextBtn">Copy Text Only</button>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn-primary" id="copyAllWithTsBtn" type="button">Copy with Timestamps</button>
+        <button class="btn-outline" id="copyCleanTextBtn" type="button">Copy Text Only</button>
+      </div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn-outline" id="exportJsonBtn" type="button">Export word timings (JSON)</button>
+      </div>
+      <div class="mini-note" id="statsNote"></div>
+    </div>
+
+    <!-- Restore last -->
+    <div class="card" id="restoreCard" style="display:none">
+      <div class="card-title">Last transcript</div>
+      <div class="card-sub" id="restoreMeta" style="margin-bottom:10px"></div>
+      <div class="btn-row">
+        <button class="btn-outline" id="restoreBtn" type="button">Restore text</button>
+        <button class="btn-danger-text" id="forgetBtn" type="button">Forget</button>
       </div>
     </div>
 
-  </div>
+    <div class="action-bar">
+      <button class="btn-primary" id="transcribeBtn" type="button" disabled>Transcribe Audio</button>
+      <button class="btn-cancel" id="cancelBtn" type="button">Cancel</button>
+    </div>
 
-  <div class="toast" id="toast"></div>
+  </main>
 
-  <!-- Audio Element for Preview -->
-  <audio id="audioPlayer"></audio>
-  <audio id="editedAudioPlayer"></audio>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <audio id="audioPlayer" playsinline></audio>
+  <audio id="editedAudioPlayer" playsinline></audio>
 
   <script>
-    // --- State Management ---
-    let selectedFile = null;
-    let selectedFileUrl = null;
-    let currentSegments = [];
-    const deletedSegmentIds = new Set();
-    let editedAudioBlob = null;
-    let editedAudioUrl = null;
-    let isUserSeeking = false;
+    'use strict';
 
-    // --- DOM Elements ---
-    const chooseFileBtn = document.getElementById('chooseFileBtn');
-    const audioFileInput = document.getElementById('audioFileInput');
-    const fileNameText = document.getElementById('fileNameText');
-    const fileSizeText = document.getElementById('fileSizeText');
-    const playPreviewBtn = document.getElementById('playPreviewBtn');
-    const scrubberContainer = document.getElementById('scrubberContainer');
-    const seekSlider = document.getElementById('seekSlider');
-    const curTimeText = document.getElementById('curTimeText');
-    const totalTimeText = document.getElementById('totalTimeText');
-    const apiKeyInput = document.getElementById('apiKeyInput');
-    const smartCleanupToggle = document.getElementById('smartCleanupToggle');
-    const transcribeBtn = document.getElementById('transcribeBtn');
-    const progressCard = document.getElementById('progressCard');
-    const progressText = document.getElementById('progressText');
-    const sentencesCard = document.getElementById('sentencesCard');
-    const sentencesListContainer = document.getElementById('sentencesListContainer');
-    const sentenceCountBadge = document.getElementById('sentenceCountBadge');
-    const rebuildAudioBtn = document.getElementById('rebuildAudioBtn');
-    const rebuiltCard = document.getElementById('rebuiltCard');
-    const rebuiltMetaText = document.getElementById('rebuiltMetaText');
-    const playEditedBtn = document.getElementById('playEditedBtn');
-    const downloadEditedBtn = document.getElementById('downloadEditedBtn');
-    const unifiedCard = document.getElementById('unifiedCard');
-    const unifiedTextArea = document.getElementById('unifiedTextArea');
-    const copyAllWithTsBtn = document.getElementById('copyAllWithTsBtn');
-    const copyCleanTextBtn = document.getElementById('copyCleanTextBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const toastEl = document.getElementById('toast');
-    const audioPlayer = document.getElementById('audioPlayer');
-    const editedAudioPlayer = document.getElementById('editedAudioPlayer');
+    /* =====================================================================
+       Constants & storage helpers
+       ===================================================================== */
+    const DEFAULT_PROMPT =
+      'بسم الله الرحمن الرحيم. الحمد لله والصلاة والسلام على رسول الله صلى الله عليه وسلم. ' +
+      'قال الله تعالى، وقال النبي صلى الله عليه وسلم، رضي الله عنه، سبحانه وتعالى. ' +
+      'يا جماعة، يعني، دلوقتي، ربنا، قلبك، الدنيا والآخرة، الصحابة، التربية، الإيمان، التوبة.';
 
-    // --- Local Storage API Key Persistence ---
-    const SAVED_KEY = localStorage.getItem('flowmate_groq_key');
-    if (SAVED_KEY) apiKeyInput.value = SAVED_KEY;
-    apiKeyInput.addEventListener('input', () => {
-      localStorage.setItem('flowmate_groq_key', apiKeyInput.value.trim());
-    });
+    const MAX_UPLOAD_BYTES = 24.5 * 1024 * 1024;   // Groq upload cap is 25 MB
+    const ASR_RATE = 16000;
+    const FRAME_SEC = 0.01;
 
-    // --- Toast Notification ---
-    function showToast(msg) {
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
-      setTimeout(() => toastEl.classList.remove('show'), 2500);
-    }
+    function lsGet(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; } }
+    function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }
+    function lsDel(k) { try { localStorage.removeItem(k); } catch (_) {} }
 
-    // --- Timestamp Formatting (mm:ss.mmm) ---
+    /* =====================================================================
+       Pure timing / segmentation logic (no DOM) - exposed for testing
+       ===================================================================== */
+
+    // mm:ss.mmm
     function formatTimestamp(seconds) {
       const s = Math.max(0, Number(seconds) || 0);
       const totalMs = Math.round(s * 1000);
@@ -671,292 +526,609 @@
     function formatFileSize(bytes) {
       if (bytes <= 0) return '0 B';
       const mb = bytes / (1024 * 1024);
-      if (mb >= 1) return mb.toFixed(1) + ' MB';
-      const kb = bytes / 1024;
-      return kb.toFixed(1) + ' KB';
+      return mb >= 1 ? mb.toFixed(1) + ' MB' : (bytes / 1024).toFixed(1) + ' KB';
     }
 
-    // --- File Selection ---
-    chooseFileBtn.addEventListener('click', () => audioFileInput.click());
-
-    audioFileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      if (file.size > 25 * 1024 * 1024) {
-        showToast('File size exceeds 25 MB limit');
-        return;
+    // 10 ms RMS envelope in dB from mono samples
+    function computeEnvelopeDb(samples, sampleRate) {
+      const hop = Math.max(1, Math.round(sampleRate * FRAME_SEC));
+      const n = Math.floor(samples.length / hop);
+      const env = new Float32Array(n);
+      for (let f = 0; f < n; f++) {
+        let acc = 0;
+        const o = f * hop;
+        for (let i = 0; i < hop; i++) { const v = samples[o + i]; acc += v * v; }
+        const rms = Math.sqrt(acc / hop);
+        env[f] = rms > 1e-5 ? 20 * Math.log10(rms) : -100;
       }
-
-      stopAllPlayback();
-      selectedFile = file;
-
-      if (selectedFileUrl) URL.revokeObjectURL(selectedFileUrl);
-      selectedFileUrl = URL.createObjectURL(file);
-      audioPlayer.src = selectedFileUrl;
-
-      fileNameText.textContent = file.name;
-      fileSizeText.textContent = `Size: ${formatFileSize(file.size)}`;
-
-      playPreviewBtn.style.display = 'inline-flex';
-      playPreviewBtn.textContent = 'Play Preview';
-      transcribeBtn.disabled = false;
-
-      // Reset results & state
-      currentSegments = [];
-      deletedSegmentIds.clear();
-      editedAudioBlob = null;
-      sentencesCard.style.display = 'none';
-      unifiedCard.style.display = 'none';
-      rebuiltCard.style.display = 'none';
-
-      audioPlayer.onloadedmetadata = () => {
-        const dur = audioPlayer.duration || 0;
-        seekSlider.max = dur;
-        seekSlider.value = 0;
-        curTimeText.textContent = '00:00.000';
-        totalTimeText.textContent = formatTimestamp(dur);
-        fileSizeText.textContent = `Size: ${formatFileSize(file.size)} | Duration: ${formatTimestamp(dur)}`;
-        scrubberContainer.style.display = 'flex';
-      };
-    });
-
-    // --- Audio Scrubber & Controls ---
-    function stopAllPlayback() {
-      audioPlayer.pause();
-      editedAudioPlayer.pause();
-      playPreviewBtn.textContent = 'Play Preview';
-      playEditedBtn.textContent = 'Play Edited Audio';
+      return env;
     }
 
-    playPreviewBtn.addEventListener('click', () => {
-      if (!audioPlayer.src) return;
-      if (!audioPlayer.paused) {
-        audioPlayer.pause();
-        playPreviewBtn.textContent = 'Resume Preview';
-      } else {
-        editedAudioPlayer.pause();
-        playEditedBtn.textContent = 'Play Edited Audio';
-        audioPlayer.play();
-        playPreviewBtn.textContent = 'Pause Preview';
-      }
-    });
-
-    audioPlayer.addEventListener('timeupdate', () => {
-      if (!isUserSeeking) {
-        seekSlider.value = audioPlayer.currentTime;
-        curTimeText.textContent = formatTimestamp(audioPlayer.currentTime);
-      }
-    });
-
-    audioPlayer.addEventListener('ended', () => {
-      playPreviewBtn.textContent = 'Play Preview';
-      seekSlider.value = 0;
-      curTimeText.textContent = '00:00.000';
-    });
-
-    seekSlider.addEventListener('input', () => {
-      isUserSeeking = true;
-      curTimeText.textContent = formatTimestamp(seekSlider.value);
-    });
-
-    seekSlider.addEventListener('change', () => {
-      isUserSeeking = false;
-      audioPlayer.currentTime = Number(seekSlider.value);
-    });
-
-    // --- Transcription Processing ---
-    transcribeBtn.addEventListener('click', async () => {
-      if (!selectedFile) {
-        showToast('Please choose an audio file first');
-        return;
-      }
-
-      const apiKey = apiKeyInput.value.trim();
-      if (!apiKey) {
-        showToast('Please enter your Groq API key');
-        apiKeyInput.focus();
-        return;
-      }
-
-      stopAllPlayback();
-      transcribeBtn.disabled = true;
-      chooseFileBtn.disabled = true;
-      progressCard.style.display = 'block';
-      progressText.textContent = 'Transcribing with Whisper (Word-Level)...';
-
-      try {
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        formData.append('model', 'whisper-large-v3');
-        formData.append('response_format', 'verbose_json');
-        formData.append('language', 'ar');
-        formData.append('timestamp_granularities[]', 'word');
-        formData.append('timestamp_granularities[]', 'segment');
-        formData.append('prompt', 'ازيك يا باشا، عامل ايه؟ احنا شغالين وبنظبط الـ features وبنعمل update للـ application قبل الـ meeting وكله تمام.');
-
-        const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${apiKey}` },
-          body: formData
-        });
-
-        if (!resp.ok) {
-          const errData = await resp.json().catch(() => ({}));
-          throw new Error(errData.error?.message || `HTTP ${resp.status}`);
+    // Finds stretches of real speech. Room noise sits well below speech, so the
+    // threshold is derived from the clip's own noise floor and speech level.
+    function findSpeechRuns(env, opts = {}) {
+      const bridge = opts.bridgeSec ?? 0.30;      // gaps shorter than this are not "pauses"
+      const minRun = opts.minRunSec ?? 0.06;
+      const n = env.length;
+      if (!n) return { runs: [], threshold: 0 };
+      const sorted = Float32Array.from(env).sort();
+      const p25 = sorted[Math.floor(n * 0.25)];            // typical noise floor (room tone)
+      const p90 = sorted[Math.min(n - 1, Math.floor(n * 0.90))];
+      let thr = p25 + Math.min(14, Math.max(7, 0.3 * (p90 - p25)));
+      thr = Math.max(thr, p90 - 30);              // digital-silence guard
+      const bridgeF = Math.round(bridge / FRAME_SEC);
+      const runs = [];
+      let start = -1, lastVoiced = -1;
+      for (let i = 0; i < n; i++) {
+        if (env[i] >= thr) {
+          if (start < 0) start = i;
+          lastVoiced = i;
+        } else if (start >= 0 && i - lastVoiced > bridgeF) {
+          runs.push([start * FRAME_SEC, (lastVoiced + 1) * FRAME_SEC]);
+          start = -1;
         }
+      }
+      if (start >= 0) runs.push([start * FRAME_SEC, (lastVoiced + 1) * FRAME_SEC]);
+      // hysteresis: soft onsets/tails slightly below the main threshold still belong to the word
+      const thrLow = thr - 4, maxExt = Math.round(0.25 / FRAME_SEC);
+      const kept = runs.filter(r => r[1] - r[0] >= minRun).map(r => ({ s: Math.round(r[0] / FRAME_SEC), e: Math.round(r[1] / FRAME_SEC) }));
+      kept.forEach((r, k) => {
+        const minS = k > 0 ? kept[k - 1].e : 0, maxE = k + 1 < kept.length ? kept[k + 1].s : n;
+        let ext = 0;
+        while (r.s > minS && ext < maxExt && env[r.s - 1] >= thrLow) { r.s--; ext++; }
+        ext = 0;
+        while (r.e < maxE && ext < maxExt && env[r.e] >= thrLow) { r.e++; ext++; }
+      });
+      return { runs: kept.map(r => ({ s: r.s * FRAME_SEC, e: r.e * FRAME_SEC })), threshold: thr };
+    }
 
-        const data = await resp.json();
-        progressText.textContent = 'Segmenting sentences...';
+    const wordLen = (w) => Math.max(1, (w || '').replace(/[\sً-ٰٟ]/g, '').length);
 
-        // Word-level or segment fallback parsing
-        let parsed = [];
-        if (data.words && data.words.length > 0) {
-          parsed = groupWordsIntoSentences(data.words);
-        } else if (data.segments && data.segments.length > 0) {
-          let nextId = 0;
-          for (const s of data.segments) {
-            const subs = splitSegmentIntoSentences(s, nextId);
-            parsed.push(...subs);
-            nextId += subs.length;
+    // Puts every Whisper word onto the speech run it really belongs to, keeping word order.
+    function refineWords(rawWords, runs) {
+      const words = rawWords
+        .filter(w => w && typeof w.word === 'string' && w.word.trim())
+        .map(w => ({ word: w.word.trim(), start: +w.start, end: Math.max(+w.end, +w.start + 0.02) }));
+      if (!runs || !runs.length) return words.map(w => ({ ...w, silent: false }));
+
+      // 1. assign each word to a run (monotonic). Words that overlap no speech at all
+      //    ("silent" words, the usual victims of Whisper's smearing) are placed afterwards.
+      const n = words.length;
+      const runOf = new Array(n).fill(-1);
+      let ri = 0;
+      for (let i = 0; i < n; i++) {
+        const w = words[i];
+        let best = -1, bestOv = 0;
+        for (let j = ri; j < runs.length; j++) {
+          const r = runs[j];
+          if (j > ri && r.s > w.end + 3) break;
+          const ov = Math.min(w.end, r.e) - Math.max(w.start, r.s);
+          if (ov > bestOv + 1e-6) { bestOv = ov; best = j; }
+        }
+        if (best >= 0) { runOf[i] = best; ri = best; }
+      }
+      const knownChars = new Array(runs.length).fill(0);
+      for (let i = 0; i < n; i++) if (runOf[i] >= 0) knownChars[runOf[i]] += wordLen(words[i].word);
+      const rates = [];
+      runs.forEach((r, j) => { if (knownChars[j] >= 4 && r.e - r.s > 0.3) rates.push(knownChars[j] / (r.e - r.s)); });
+      rates.sort((a, b) => a - b);
+      const medRate = rates.length ? rates[Math.floor(rates.length / 2)] : 12;
+      const runCost = (j, chars) => chars === 0 ? 0.7 : Math.abs(Math.log((chars / Math.max(0.15, runs[j].e - runs[j].s)) / medRate));
+      const midOf = (w) => (w.start + w.end) / 2;
+      const distTo = (j, t) => t < runs[j].s ? runs[j].s - t : (t > runs[j].e ? t - runs[j].e : 0);
+
+      const silentWord = runOf.map(r => r < 0);
+      for (let i = 0; i < n;) {
+        if (runOf[i] >= 0) { i++; continue; }
+        let k = i;
+        while (k + 1 < n && runOf[k + 1] < 0) k++;
+        const prevR = i > 0 ? runOf[i - 1] : -1;
+        const nextR = k + 1 < n ? runOf[k + 1] : -1;
+        const seq = []; for (let m = i; m <= k; m++) seq.push(m);
+        if (prevR < 0 && nextR < 0) {                       // nothing known: nearest run, in order
+          let cur = 0;
+          for (const m of seq) {
+            let bj = cur, bd = Infinity;
+            for (let j = cur; j < runs.length; j++) { const d = distTo(j, midOf(words[m])); if (d < bd) { bd = d; bj = j; } }
+            runOf[m] = bj; cur = bj;
           }
-        } else if (data.text) {
-          parsed = [{ id: 0, start: 0, end: audioPlayer.duration || 1, text: data.text.trim() }];
-        }
-
-        // Optional Smart AI Cleanup via Llama 3.1
-        if (smartCleanupToggle.checked && data.text) {
-          progressText.textContent = 'Polishing transcript with Smart AI...';
-          try {
-            const cleanupResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
-                temperature: 0.0,
-                messages: [
-                  {
-                    role: 'system',
-                    content: 'You are an Egyptian Arabic Speech-to-Text proofreader. Keep Egyptian dialect (عامية مصرية), English technical terms in Latin (e.g. app, feature), fix grammar and typos. Return ONLY the cleaned transcript.'
-                  },
-                  { role: 'user', content: data.text }
-                ]
-              })
-            });
-            if (cleanupResp.ok) {
-              const cData = await cleanupResp.json();
-              const polishedText = cData.choices?.[0]?.message?.content?.trim();
-              if (polishedText) {
-                if (parsed.length === 1) parsed[0].text = polishedText;
+        } else {
+          const lo = prevR >= 0 ? prevR : nextR, hi = nextR >= 0 ? nextR : prevR;
+          if (lo === hi) seq.forEach(m => { runOf[m] = lo; });
+          else {
+            let cands = []; for (let j = lo; j <= hi; j++) cands.push(j);
+            if (cands.length > 4 || seq.length > 8) cands = [lo, hi];
+            let bestCost = Infinity, bestAssign = null;
+            const cur = new Array(seq.length);
+            const rec = (si, cj) => {
+              if (si === seq.length) {
+                const add = {};
+                seq.forEach((m, x) => { add[cur[x]] = (add[cur[x]] || 0) + wordLen(words[m].word); });
+                let cost = 0;
+                for (const j of cands) cost += runCost(j, (knownChars[j] || 0) + (add[j] || 0));
+                seq.forEach((m, x) => { cost += 0.01 * distTo(cur[x], midOf(words[m])); });
+                if (cost < bestCost) { bestCost = cost; bestAssign = cur.slice(); }
+                return;
               }
-            }
-          } catch (_) {}
+              for (let c = cj; c < cands.length; c++) { cur[si] = cands[c]; rec(si + 1, c); }
+            };
+            rec(0, 0);
+            seq.forEach((m, x) => { runOf[m] = bestAssign[x]; });
+          }
         }
-
-        currentSegments = parsed;
-        deletedSegmentIds.clear();
-        renderSentencesList();
-        showToast('Transcription completed!');
-      } catch (err) {
-        showToast(err.message || 'Transcription failed');
-      } finally {
-        progressCard.style.display = 'none';
-        transcribeBtn.disabled = false;
-        chooseFileBtn.disabled = false;
+        i = k + 1;
       }
-    });
+      const assign = runOf.map((r, i) => ({ run: r, silent: silentWord[i] }));
 
-    // --- Dynamic Sentence Boundary Grouping ---
-    function groupWordsIntoSentences(words) {
-      if (!words || words.length === 0) return [];
+      // 2. inside each run, clamp to the run; fall back to character weights if it degenerates
+      const out = words.map(w => ({ ...w, silent: false }));
+      let i = 0;
+      while (i < words.length) {
+        let k = i;
+        while (k + 1 < words.length && assign[k + 1].run === assign[i].run) k++;
+        const run = runs[assign[i].run];
+        const group = [];
+        for (let m = i; m <= k; m++) group.push(m);
+        let prevEnd = run.s;
+        let degenerate = false;
+        for (const m of group) {
+          const s = Math.min(Math.max(words[m].start, prevEnd, run.s), run.e);
+          const e = Math.min(Math.max(words[m].end, s), run.e);
+          out[m].start = s; out[m].end = e;
+          if (e - s < 0.04) degenerate = true;
+          prevEnd = e;
+        }
+        if (degenerate && (run.e - run.s) >= group.length * 0.06) {
+          const total = group.reduce((a, m) => a + wordLen(words[m].word), 0);
+          let t = run.s;
+          for (const m of group) {
+            const d = (run.e - run.s) * wordLen(words[m].word) / total;
+            out[m].start = t; out[m].end = t + d; t += d;
+          }
+        } else {
+          out[group[0]].start = run.s;
+          out[group[group.length - 1]].end = run.e;
+        }
+        for (const m of group) out[m].silent = assign[m].silent;
+        i = k + 1;
+      }
+      return out;
+    }
+
+    // Builds sentences from (refined) words, splitting at real pauses and punctuation.
+    function groupWordsIntoSentences(words, opts = {}) {
+      const pauseSplit = opts.pauseSplit ?? 0.5;
+      const maxDur = opts.maxDur ?? 7.0;
       const sentences = [];
-      let curWords = [];
-      let segId = 0;
-
+      let cur = [];
+      const flush = () => {
+        if (!cur.length) return;
+        const text = cur.map(x => x.word).join(' ').replace(/\s+/g, ' ').trim();
+        if (text) sentences.push({ id: sentences.length, start: cur[0].start, end: cur[cur.length - 1].end, text, words: cur.map(x => ({ w: x.word, s: x.start, e: x.end, silent: !!x.silent })) });
+        cur = [];
+      };
       for (let i = 0; i < words.length; i++) {
         const w = words[i];
-        curWords.push(w);
-
-        const wordText = (w.word || '').trim();
-        const hasTerminator = /[.؟!?:؛;]$/.test(wordText);
-        const isComma = /[,،]$/.test(wordText);
-        const nextW = words[i + 1];
-        const pauseToNext = nextW ? (nextW.start - w.end) : 0;
-        const curDuration = w.end - curWords[0].start;
-
-        const shouldSplit = hasTerminator ||
-          (isComma && (pauseToNext >= 0.25 || curWords.length >= 4)) ||
-          (pauseToNext >= 0.45 && curWords.length >= 2) ||
-          (curDuration >= 6.0 && curWords.length >= 4) ||
-          (!nextW);
-
-        if (shouldSplit) {
-          const text = curWords.map(x => x.word.trim()).join(' ').trim();
-          if (text) {
-            sentences.push({
-              id: segId++,
-              start: curWords[0].start,
-              end: w.end,
-              text: text
-            });
-          }
-          curWords = [];
-        }
+        cur.push(w);
+        const next = words[i + 1];
+        const gap = next ? next.start - w.end : 0;
+        const terminator = /[.؟!?؛;]$/.test(w.word);
+        const colon = /:$/.test(w.word);
+        const comma = /[,،]$/.test(w.word);
+        const dur = w.end - cur[0].start;
+        const split =
+          !next ||
+          terminator ||
+          (colon && cur.length >= 3) ||
+          (comma && (gap >= 0.25 || cur.length >= 5)) ||
+          (gap >= pauseSplit && cur.length >= 2) ||
+          (gap >= 0.9) ||
+          (dur >= maxDur && cur.length >= 4 && gap >= 0.12);
+        if (split) flush();
       }
       return sentences;
     }
 
+    // Segment-only fallback (Whisper returned no word timestamps)
     function splitSegmentIntoSentences(seg, startId) {
       const text = (seg.text || '').trim();
       const dur = seg.end - seg.start;
-      if (dur <= 3.5) return [{ id: startId, start: seg.start, end: seg.end, text: text }];
-
+      if (dur <= 3.5) return [{ id: startId, start: seg.start, end: seg.end, text, words: [] }];
       const parts = text.split(/(?<=[.؟!?:؛\n])\s+|(?<=[,،])\s+/).filter(x => x.trim().length > 0);
-      if (parts.length <= 1) return [{ id: startId, start: seg.start, end: seg.end, text: text }];
-
-      const totalChars = parts.reduce((acc, p) => acc + p.length, 0);
-      let curStart = seg.start;
+      if (parts.length <= 1) return [{ id: startId, start: seg.start, end: seg.end, text, words: [] }];
+      const totalChars = parts.reduce((a, p) => a + p.length, 0);
+      let curStart = seg.start, curId = startId;
       const result = [];
-      let curId = startId;
-
       for (const p of parts) {
-        const pDur = dur * (p.length / totalChars);
-        const pEnd = Math.min(seg.end, curStart + pDur);
-        result.push({ id: curId++, start: curStart, end: pEnd, text: p.trim() });
+        const pEnd = Math.min(seg.end, curStart + dur * (p.length / totalChars));
+        result.push({ id: curId++, start: curStart, end: pEnd, text: p.trim(), words: [] });
         curStart = pEnd;
       }
       return result;
     }
 
-    // --- Interactive Sentence List Rendering ---
+    // Confidence flags from Whisper's segment stats + how much of the line is really voiced
+    function annotateConfidence(sentences, segments, runs) {
+      for (const s of sentences) {
+        s.reasons = [];
+        const mid = (s.start + s.end) / 2;
+        const seg = (segments || []).find(g => mid >= g.start - 0.05 && mid <= g.end + 0.05);
+        if (seg) {
+          if (typeof seg.avg_logprob === 'number' && seg.avg_logprob < -0.7) s.reasons.push('low confidence');
+          if (typeof seg.compression_ratio === 'number' && seg.compression_ratio > 2.4) s.reasons.push('repetitive');
+          if (typeof seg.no_speech_prob === 'number' && seg.no_speech_prob > 0.6) s.reasons.push('maybe not speech');
+        }
+        if (runs && runs.length) {
+          let voiced = 0;
+          for (const r of runs) voiced += Math.max(0, Math.min(s.end, r.e) - Math.max(s.start, r.s));
+          const dur = Math.max(0.05, s.end - s.start);
+          if (voiced / dur < 0.4) s.reasons.push('mostly silence');
+          if (s.words && s.words.some(w => w.silent)) s.reasons.push('word in silence');
+        }
+        s.reasons = [...new Set(s.reasons)];
+        s.doubtful = s.reasons.length > 0;
+      }
+      return sentences;
+    }
+
+    function addPauseInfo(sentences) {
+      for (let i = 0; i < sentences.length - 1; i++) {
+        const gap = sentences[i + 1].start - sentences[i].end;
+        sentences[i].pauseAfter = gap >= 1.0 ? gap : 0;
+      }
+      if (sentences.length) sentences[sentences.length - 1].pauseAfter = 0;
+      return sentences;
+    }
+
+    // Whole pipeline: Whisper response (+ optional envelope) -> sentence list
+    function buildSentences(data, env, opts = {}) {
+      const snap = opts.snap !== false && env && env.length;
+      const runInfo = snap ? findSpeechRuns(env) : { runs: [], threshold: null };
+      const runs = runInfo.runs;
+      let sentences = [];
+      if (data.words && data.words.length) {
+        const words = snap ? refineWords(data.words, runs) :
+          data.words.filter(w => w.word && w.word.trim()).map(w => ({ word: w.word.trim(), start: +w.start, end: +w.end, silent: false }));
+        sentences = groupWordsIntoSentences(words, opts);
+      } else if (data.segments && data.segments.length) {
+        let id = 0;
+        for (const s of data.segments) { const subs = splitSegmentIntoSentences(s, id); sentences.push(...subs); id += subs.length; }
+      } else if (data.text) {
+        sentences = [{ id: 0, start: 0, end: opts.duration || 1, text: data.text.trim(), words: [] }];
+      }
+      annotateConfidence(sentences, data.segments, snap ? runs : null);
+      addPauseInfo(sentences);
+      return { sentences, runs, threshold: runInfo.threshold };
+    }
+
+    function transcriptLines(sentences, deleted, markDoubtful) {
+      return sentences.filter(s => !deleted.has(s.id))
+        .map(s => `[${formatTimestamp(s.start)} → ${formatTimestamp(s.end)}] ${markDoubtful && s.doubtful ? '⚠ ' : ''}${s.text}`)
+        .join('\n');
+    }
+
+    /* =====================================================================
+       State & DOM
+       ===================================================================== */
+    let selectedFile = null;
+    let selectedFileUrl = null;
+    let decodedBuf = null;            // full-quality AudioBuffer (for cuts)
+    let envelope = null;              // Float32Array dB @10ms
+    let lastSnapped = false;
+    let currentSegments = [];
+    const deletedSegmentIds = new Set();
+    let editedAudioBlob = null;
+    let editedAudioUrl = null;
+    let sourceIsEdited = false;
+    let isUserSeeking = false;
+    let activeXhr = null;
+    let wakeLock = null;
+    let deferredInstall = null;
+
+    const $ = (id) => document.getElementById(id);
+    const chooseFileBtn = $('chooseFileBtn'), audioFileInput = $('audioFileInput');
+    const fileNameText = $('fileNameText'), fileSizeText = $('fileSizeText');
+    const playPreviewBtn = $('playPreviewBtn'), scrubberContainer = $('scrubberContainer');
+    const seekSlider = $('seekSlider'), curTimeText = $('curTimeText'), totalTimeText = $('totalTimeText');
+    const apiKeyInput = $('apiKeyInput'), toggleKeyBtn = $('toggleKeyBtn');
+    const modelSelect = $('modelSelect'), promptInput = $('promptInput'), resetPromptBtn = $('resetPromptBtn');
+    const snapToggle = $('snapToggle'), markToggle = $('markToggle'), settingsCard = $('settingsCard');
+    const transcribeBtn = $('transcribeBtn'), cancelBtn = $('cancelBtn');
+    const progressCard = $('progressCard'), progressText = $('progressText'), progressBar = $('progressBar'), progressFill = $('progressFill');
+    const sentencesCard = $('sentencesCard'), sentencesListContainer = $('sentencesListContainer');
+    const sentenceCountBadge = $('sentenceCountBadge'), rebuildAudioBtn = $('rebuildAudioBtn');
+    const rebuiltCard = $('rebuiltCard'), rebuiltMetaText = $('rebuiltMetaText');
+    const playEditedBtn = $('playEditedBtn'), downloadEditedBtn = $('downloadEditedBtn');
+    const unifiedCard = $('unifiedCard'), unifiedTextArea = $('unifiedTextArea');
+    const copyAllWithTsBtn = $('copyAllWithTsBtn'), copyCleanTextBtn = $('copyCleanTextBtn');
+    const exportJsonBtn = $('exportJsonBtn'), clearBtn = $('clearBtn'), statsNote = $('statsNote');
+    const restoreCard = $('restoreCard'), restoreMeta = $('restoreMeta'), restoreBtn = $('restoreBtn'), forgetBtn = $('forgetBtn');
+    const toastEl = $('toast');
+    const audioPlayer = $('audioPlayer'), editedAudioPlayer = $('editedAudioPlayer');
+    const installBtn = $('installBtn'), iosHint = $('iosHint');
+
+    /* ---------- Persisted settings ---------- */
+    apiKeyInput.value = lsGet('flowmate_groq_key', '') || '';
+    apiKeyInput.addEventListener('input', () => lsSet('flowmate_groq_key', apiKeyInput.value.trim()));
+    if (!apiKeyInput.value) settingsCard.open = true;
+    toggleKeyBtn.addEventListener('click', () => {
+      const show = apiKeyInput.type === 'password';
+      apiKeyInput.type = show ? 'text' : 'password';
+      toggleKeyBtn.textContent = show ? 'Hide' : 'Show';
+    });
+
+    modelSelect.value = lsGet('flowmate_model', 'whisper-large-v3');
+    if (!modelSelect.value) modelSelect.value = 'whisper-large-v3';
+    modelSelect.addEventListener('change', () => lsSet('flowmate_model', modelSelect.value));
+
+    promptInput.value = lsGet('flowmate_prompt', DEFAULT_PROMPT);
+    promptInput.addEventListener('input', () => lsSet('flowmate_prompt', promptInput.value));
+    resetPromptBtn.addEventListener('click', () => { promptInput.value = DEFAULT_PROMPT; lsSet('flowmate_prompt', DEFAULT_PROMPT); showToast('Prompt reset'); });
+
+    snapToggle.checked = lsGet('flowmate_snap', '1') === '1';
+    snapToggle.addEventListener('change', () => lsSet('flowmate_snap', snapToggle.checked ? '1' : '0'));
+    markToggle.checked = lsGet('flowmate_mark', '0') === '1';
+    markToggle.addEventListener('change', () => { lsSet('flowmate_mark', markToggle.checked ? '1' : '0'); updateUnifiedTranscript(); });
+
+    /* ---------- Small UI helpers ---------- */
+    let toastTimer = null;
+    function showToast(msg, opts = {}) {
+      toastEl.textContent = msg;
+      toastEl.classList.toggle('action', !!opts.onTap);
+      toastEl.onclick = opts.onTap || null;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), opts.sticky ? 12000 : 2600);
+    }
+    function haptic(ms = 12) { try { navigator.vibrate && navigator.vibrate(ms); } catch (_) {} }
+    function setProgress(text, pct) {
+      progressText.textContent = text;
+      if (typeof pct === 'number') { progressBar.style.display = 'block'; progressFill.style.width = Math.round(pct * 100) + '%'; }
+      else progressBar.style.display = 'none';
+    }
+    function setBusy(busy) {
+      progressCard.style.display = busy ? 'block' : 'none';
+      transcribeBtn.disabled = busy || !selectedFile;
+      chooseFileBtn.disabled = busy;
+      cancelBtn.style.display = busy ? 'inline-flex' : 'none';
+      if (busy) acquireWakeLock(); else releaseWakeLock();
+    }
+    async function acquireWakeLock() { try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {} }
+    function releaseWakeLock() { try { wakeLock && wakeLock.release(); } catch (_) {} wakeLock = null; }
+
+    async function copyText(text) {
+      try { await navigator.clipboard.writeText(text); return true; } catch (_) {}
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (_) { return false; }
+    }
+
+    /* =====================================================================
+       File selection & audio preparation
+       ===================================================================== */
+    chooseFileBtn.addEventListener('click', () => audioFileInput.click());
+    audioFileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) loadFile(f); audioFileInput.value = ''; });
+
+    function resetResults() {
+      currentSegments = [];
+      deletedSegmentIds.clear();
+      editedAudioBlob = null;
+      sourceIsEdited = false;
+      envelope = null;
+      decodedBuf = null;
+      sentencesCard.style.display = 'none';
+      unifiedCard.style.display = 'none';
+      rebuiltCard.style.display = 'none';
+    }
+
+    function loadFile(file) {
+      if (file.size > 200 * 1024 * 1024) { showToast('File is too large (max 200 MB)'); return; }
+      stopAllPlayback();
+      resetResults();
+      selectedFile = file;
+      if (selectedFileUrl) URL.revokeObjectURL(selectedFileUrl);
+      selectedFileUrl = URL.createObjectURL(file);
+      audioPlayer.src = selectedFileUrl;
+      fileNameText.textContent = file.name;
+      fileSizeText.textContent = `Size: ${formatFileSize(file.size)}`;
+      playPreviewBtn.style.display = 'inline-flex';
+      playPreviewBtn.textContent = 'Play Preview';
+      transcribeBtn.disabled = false;
+      audioPlayer.onloadedmetadata = () => {
+        const dur = audioPlayer.duration || 0;
+        seekSlider.max = dur; seekSlider.value = 0;
+        curTimeText.textContent = '00:00.000';
+        totalTimeText.textContent = formatTimestamp(dur);
+        fileSizeText.textContent = `Size: ${formatFileSize(file.size)} · Duration: ${formatTimestamp(dur)}`;
+        scrubberContainer.style.display = 'flex';
+      };
+    }
+
+    // Decode once; build a 16 kHz mono WAV (small, fast upload) and a loudness envelope.
+    async function prepareAudio(file) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AC();
+      let buf;
+      try { buf = await ctx.decodeAudioData(await file.arrayBuffer()); }
+      finally { try { ctx.close(); } catch (_) {} }
+      const length = Math.max(1, Math.ceil(buf.duration * ASR_RATE));
+      const off = new OfflineAudioContext(1, length, ASR_RATE);
+      const src = off.createBufferSource();
+      src.buffer = buf; src.connect(off.destination); src.start();
+      const rendered = await off.startRendering();
+      const env = computeEnvelopeDb(rendered.getChannelData(0), ASR_RATE);
+      const wav = audioBufferToWav(rendered);
+      return { buf, env, wav };
+    }
+
+    /* =====================================================================
+       Transcription
+       ===================================================================== */
+    function groqTranscribe(blob, filename, apiKey, onUpload) {
+      return new Promise((resolve, reject) => {
+        const fd = new FormData();
+        fd.append('file', blob, filename);
+        fd.append('model', modelSelect.value || 'whisper-large-v3');
+        fd.append('response_format', 'verbose_json');
+        fd.append('language', 'ar');
+        fd.append('temperature', '0');
+        fd.append('timestamp_granularities[]', 'word');
+        fd.append('timestamp_granularities[]', 'segment');
+        const prompt = promptInput.value.trim();
+        if (prompt) fd.append('prompt', prompt.slice(0, 800));
+
+        const xhr = new XMLHttpRequest();
+        activeXhr = xhr;
+        xhr.open('POST', 'https://api.groq.com/openai/v1/audio/transcriptions');
+        xhr.setRequestHeader('Authorization', `Bearer ${apiKey}`);
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) onUpload(e.loaded / e.total); };
+        xhr.onload = () => {
+          activeXhr = null;
+          let body = null;
+          try { body = JSON.parse(xhr.responseText); } catch (_) {}
+          if (xhr.status >= 200 && xhr.status < 300 && body) return resolve(body);
+          let msg = body?.error?.message || `HTTP ${xhr.status}`;
+          if (xhr.status === 401) msg = 'Invalid Groq API key';
+          if (xhr.status === 429) msg = 'Rate limit reached. Wait a minute and try again.';
+          reject(new Error(msg));
+        };
+        xhr.onerror = () => { activeXhr = null; reject(new Error(navigator.onLine ? 'Network error while contacting Groq' : 'You are offline')); };
+        xhr.onabort = () => { activeXhr = null; reject(Object.assign(new Error('Cancelled'), { cancelled: true })); };
+        xhr.send(fd);
+      });
+    }
+
+    let cancelled = false;
+    cancelBtn.addEventListener('click', () => { cancelled = true; if (activeXhr) activeXhr.abort(); });
+
+    transcribeBtn.addEventListener('click', async () => {
+      if (!selectedFile) { showToast('Please choose an audio file first'); return; }
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) { settingsCard.open = true; apiKeyInput.focus(); showToast('Please enter your Groq API key'); return; }
+      if (!navigator.onLine) { showToast('You are offline'); return; }
+
+      haptic();
+      stopAllPlayback();
+      cancelled = false;
+      setBusy(true);
+      try {
+        let uploadBlob = selectedFile, uploadName = selectedFile.name, usedEnv = null;
+        setProgress('Preparing audio (16 kHz mono)...');
+        try {
+          const prep = await prepareAudio(selectedFile);
+          decodedBuf = prep.buf; envelope = prep.env; usedEnv = prep.env;
+          uploadBlob = prep.wav; uploadName = 'audio.wav';
+          if (cancelled) throw Object.assign(new Error('Cancelled'), { cancelled: true });
+          if (prep.wav.size > MAX_UPLOAD_BYTES) {
+            throw new Error(`Clip is too long for one request (${formatTimestamp(prep.buf.duration)}). Trim it to under about 12 minutes.`);
+          }
+        } catch (err) {
+          if (err.cancelled || /too long/.test(err.message)) throw err;
+          // Browser cannot decode this format: send the original and skip timing snap
+          decodedBuf = null; envelope = null;
+          if (selectedFile.size > MAX_UPLOAD_BYTES) throw new Error('This format cannot be processed here and the file is over 25 MB.');
+          showToast('Could not analyse the audio locally; timing snap disabled');
+        }
+
+        setProgress('Uploading...', 0);
+        const data = await groqTranscribe(uploadBlob, uploadName, apiKey, (p) => {
+          if (p >= 1) setProgress('Transcribing with Whisper (word-level)...'); else setProgress('Uploading...', p);
+        });
+
+        setProgress('Aligning words to the speech...');
+        const dur = decodedBuf ? decodedBuf.duration : (audioPlayer.duration || 1);
+        const built = buildSentences(data, usedEnv, { snap: snapToggle.checked, duration: dur });
+        lastSnapped = !!(snapToggle.checked && usedEnv);
+        if (!built.sentences.length) throw new Error('No speech was detected');
+
+        currentSegments = built.sentences;
+        deletedSegmentIds.clear();
+        sourceIsEdited = false;
+        rebuiltCard.style.display = 'none';
+        renderSentencesList();
+        saveLast();
+        const bad = currentSegments.filter(s => s.doubtful).length;
+        showToast(bad ? `Done. ${bad} line${bad > 1 ? 's' : ''} to double-check` : 'Transcription completed!');
+        haptic(20);
+        unifiedCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (err) {
+        if (!err.cancelled) showToast(err.message || 'Transcription failed', { sticky: true });
+        else showToast('Cancelled');
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    /* =====================================================================
+       Playback
+       ===================================================================== */
+    function stopAllPlayback() {
+      audioPlayer.pause(); editedAudioPlayer.pause();
+      playPreviewBtn.textContent = 'Play Preview';
+      playEditedBtn.textContent = 'Play Edited Audio';
+      playStopAt = null;
+    }
+
+    playPreviewBtn.addEventListener('click', () => {
+      if (!audioPlayer.src) return;
+      playStopAt = null;
+      if (!audioPlayer.paused) { audioPlayer.pause(); playPreviewBtn.textContent = 'Resume Preview'; }
+      else {
+        editedAudioPlayer.pause(); playEditedBtn.textContent = 'Play Edited Audio';
+        audioPlayer.play(); playPreviewBtn.textContent = 'Pause Preview';
+      }
+    });
+
+    let playStopAt = null;
+    audioPlayer.addEventListener('timeupdate', () => {
+      if (!isUserSeeking) { seekSlider.value = audioPlayer.currentTime; curTimeText.textContent = formatTimestamp(audioPlayer.currentTime); }
+      if (playStopAt !== null && audioPlayer.currentTime >= playStopAt) { audioPlayer.pause(); playStopAt = null; playPreviewBtn.textContent = 'Resume Preview'; }
+    });
+    editedAudioPlayer.addEventListener('timeupdate', () => {
+      if (playStopAt !== null && editedAudioPlayer.currentTime >= playStopAt) { editedAudioPlayer.pause(); playStopAt = null; playEditedBtn.textContent = 'Play Edited Audio'; }
+    });
+    audioPlayer.addEventListener('ended', () => { playPreviewBtn.textContent = 'Play Preview'; seekSlider.value = 0; curTimeText.textContent = '00:00.000'; });
+    seekSlider.addEventListener('input', () => { isUserSeeking = true; curTimeText.textContent = formatTimestamp(seekSlider.value); });
+    seekSlider.addEventListener('change', () => { isUserSeeking = false; audioPlayer.currentTime = Number(seekSlider.value); });
+
+    function playSingleSegment(seg) {
+      const player = sourceIsEdited ? editedAudioPlayer : audioPlayer;
+      if (!player.src) { showToast('Audio is not loaded for this transcript'); return; }
+      stopAllPlayback();
+      player.currentTime = Math.max(0, seg.start - 0.05);
+      playStopAt = seg.end + 0.05;
+      player.play().catch(() => {});
+      if (!sourceIsEdited) playPreviewBtn.textContent = 'Pause Preview'; else playEditedBtn.textContent = 'Pause Edited Audio';
+    }
+
+    /* =====================================================================
+       Sentence list & transcript
+       ===================================================================== */
+    function autoGrow(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+
     function renderSentencesList() {
       sentencesListContainer.innerHTML = '';
-      if (currentSegments.length === 0) {
-        sentencesCard.style.display = 'none';
-        unifiedCard.style.display = 'none';
-        return;
-      }
-
+      if (currentSegments.length === 0) { sentencesCard.style.display = 'none'; unifiedCard.style.display = 'none'; return; }
       sentencesCard.style.display = 'block';
       unifiedCard.style.display = 'block';
 
       const activeCount = currentSegments.length - deletedSegmentIds.size;
       sentenceCountBadge.textContent = `${activeCount} active / ${currentSegments.length} total`;
-
-      rebuildAudioBtn.style.display = deletedSegmentIds.size > 0 ? 'block' : 'none';
+      rebuildAudioBtn.style.display = deletedSegmentIds.size > 0 && decodedBuf ? 'flex' : 'none';
       rebuildAudioBtn.textContent = `Apply Cuts & Rebuild Audio (${deletedSegmentIds.size} cut)`;
 
-      currentSegments.forEach(seg => {
+      currentSegments.forEach((seg, idx) => {
         const isDeleted = deletedSegmentIds.has(seg.id);
         const item = document.createElement('div');
-        item.className = `sentence-item ${isDeleted ? 'deleted' : ''}`;
+        item.className = 'sentence-item' + (isDeleted ? ' deleted' : '') + (seg.doubtful && !isDeleted ? ' doubtful' : '');
 
         const topRow = document.createElement('div');
         topRow.className = 'sentence-top-row';
-
         const badge = document.createElement('span');
         badge.className = 'sentence-time-badge';
         badge.textContent = `[${formatTimestamp(seg.start)} → ${formatTimestamp(seg.end)}]`;
@@ -964,233 +1136,321 @@
 
         const actions = document.createElement('div');
         actions.className = 'sentence-actions';
-
         const playBtn = document.createElement('button');
-        playBtn.className = 'action-link action-play';
-        playBtn.textContent = '▶ Play';
+        playBtn.type = 'button'; playBtn.className = 'action-link action-play'; playBtn.textContent = '▶ Play';
         playBtn.onclick = () => playSingleSegment(seg);
         actions.appendChild(playBtn);
-
         const cutBtn = document.createElement('button');
+        cutBtn.type = 'button';
         cutBtn.className = `action-link ${isDeleted ? 'action-undo' : 'action-cut'}`;
         cutBtn.textContent = isDeleted ? '↩ Undo' : '✕ Cut';
         cutBtn.onclick = () => {
-          if (isDeleted) {
-            deletedSegmentIds.delete(seg.id);
-          } else {
-            if (currentSegments.length - deletedSegmentIds.size <= 1) {
-              showToast('Cannot delete all sentences');
-              return;
-            }
+          if (isDeleted) deletedSegmentIds.delete(seg.id);
+          else {
+            if (currentSegments.length - deletedSegmentIds.size <= 1) { showToast('Cannot delete all sentences'); return; }
             deletedSegmentIds.add(seg.id);
           }
+          haptic();
           renderSentencesList();
-          updateUnifiedTranscript();
+          saveLast();
         };
         actions.appendChild(cutBtn);
-
         topRow.appendChild(actions);
         item.appendChild(topRow);
 
-        const textDiv = document.createElement('div');
-        textDiv.className = 'sentence-text';
-        textDiv.textContent = seg.text;
-        item.appendChild(textDiv);
+        if (seg.doubtful && seg.reasons && seg.reasons.length) {
+          const tags = document.createElement('div');
+          tags.className = 'tag-row';
+          seg.reasons.forEach(r => { const t = document.createElement('span'); t.className = 'tag'; t.textContent = '⚠ ' + r; tags.appendChild(t); });
+          item.appendChild(tags);
+        }
+
+        const ta = document.createElement('textarea');
+        ta.className = 'sentence-edit';
+        ta.value = seg.text; ta.rows = 1; ta.spellcheck = false;
+        ta.setAttribute('aria-label', 'Sentence text');
+        ta.addEventListener('input', () => { seg.text = ta.value; autoGrow(ta); updateUnifiedTranscript(); saveLast(); });
+        item.appendChild(ta);
 
         sentencesListContainer.appendChild(item);
-      });
+        autoGrow(ta);
 
+        if (seg.pauseAfter > 0 && idx < currentSegments.length - 1) {
+          const p = document.createElement('div');
+          p.className = 'pause-marker';
+          p.innerHTML = `<span>⏸ ${seg.pauseAfter.toFixed(1)}s pause</span>`;
+          sentencesListContainer.appendChild(p);
+        }
+      });
       updateUnifiedTranscript();
     }
 
-    function playSingleSegment(seg) {
-      if (!audioPlayer.src) return;
-      stopAllPlayback();
-      audioPlayer.currentTime = seg.start;
-      audioPlayer.play();
-      playPreviewBtn.textContent = 'Pause Preview';
-
-      const durMs = Math.max(400, (seg.end - seg.start) * 1000);
-      setTimeout(() => {
-        if (!audioPlayer.paused && Math.abs(audioPlayer.currentTime - seg.end) < 0.6) {
-          audioPlayer.pause();
-          playPreviewBtn.textContent = 'Resume Preview';
-        }
-      }, durMs);
-    }
-
     function updateUnifiedTranscript() {
+      unifiedTextArea.value = transcriptLines(currentSegments, deletedSegmentIds, markToggle.checked);
       const kept = currentSegments.filter(s => !deletedSegmentIds.has(s.id));
-      unifiedTextArea.value = kept.map(s => `[${formatTimestamp(s.start)} → ${formatTimestamp(s.end)}] ${s.text}`).join('\n');
+      const bad = kept.filter(s => s.doubtful).length;
+      const pauses = kept.filter(s => s.pauseAfter > 0).length;
+      statsNote.textContent = `${kept.length} sentences · ${bad} to double-check · ${pauses} long pause${pauses === 1 ? '' : 's'} (1 s or more)`;
     }
 
-    // --- Audio Rebuilding via Web Audio API ---
-    rebuildAudioBtn.addEventListener('click', async () => {
-      if (deletedSegmentIds.size === 0) return;
-      stopAllPlayback();
-      progressCard.style.display = 'block';
-      progressText.textContent = 'Decoding and splicing audio in browser...';
-
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const arrayBuf = await selectedFile.arrayBuffer();
-        const decodedBuf = await audioCtx.decodeAudioData(arrayBuf);
-
-        const keptSegs = currentSegments.filter(s => !deletedSegmentIds.has(s.id));
-        const sampleRate = decodedBuf.sampleRate;
-        const numChannels = decodedBuf.numberOfChannels;
-
-        let totalSamples = 0;
-        const sliceRanges = keptSegs.map(seg => {
-          const startSample = Math.max(0, Math.floor(seg.start * sampleRate));
-          const endSample = Math.min(decodedBuf.length, Math.floor(seg.end * sampleRate));
-          const len = Math.max(0, endSample - startSample);
-          totalSamples += len;
-          return { startSample, len };
-        });
-
-        if (totalSamples === 0) throw new Error('No audio kept');
-
-        const splicedBuf = audioCtx.createBuffer(numChannels, totalSamples, sampleRate);
-        for (let ch = 0; ch < numChannels; ch++) {
-          const srcData = decodedBuf.getChannelData(ch);
-          const destData = splicedBuf.getChannelData(ch);
-          let offset = 0;
-          for (const r of sliceRanges) {
-            destData.set(srcData.subarray(r.startSample, r.startSample + r.len), offset);
-            offset += r.len;
-          }
-        }
-
-        const wavBlob = audioBufferToWav(splicedBuf);
-        if (editedAudioUrl) URL.revokeObjectURL(editedAudioUrl);
-        editedAudioBlob = wavBlob;
-        editedAudioUrl = URL.createObjectURL(wavBlob);
-        editedAudioPlayer.src = editedAudioUrl;
-
-        let curStart = 0;
-        const recalculated = keptSegs.map(seg => {
-          const dur = Math.max(0.05, seg.end - seg.start);
-          const newEnd = curStart + dur;
-          const updated = { id: seg.id, start: curStart, end: newEnd, text: seg.text };
-          curStart = newEnd;
-          return updated;
-        });
-
-        currentSegments = recalculated;
-        deletedSegmentIds.clear();
-        renderSentencesList();
-
-        rebuiltMetaText.textContent = `Duration: ${formatTimestamp(curStart)} | Size: ${formatFileSize(wavBlob.size)}`;
-        rebuiltCard.style.display = 'block';
-        showToast('Audio spliced and rebuilt successfully!');
-      } catch (err) {
-        showToast('Audio rebuild error: ' + err.message);
-      } finally {
-        progressCard.style.display = 'none';
-      }
-    });
-
-    // --- Audio Rebuilt Play & Download ---
-    playEditedBtn.addEventListener('click', () => {
-      if (!editedAudioPlayer.src) return;
-      if (!editedAudioPlayer.paused) {
-        editedAudioPlayer.pause();
-        playEditedBtn.textContent = 'Play Edited Audio';
-      } else {
-        audioPlayer.pause();
-        playPreviewBtn.textContent = 'Resume Preview';
-        editedAudioPlayer.play();
-        playEditedBtn.textContent = 'Pause Edited Audio';
-      }
-    });
-
-    editedAudioPlayer.addEventListener('ended', () => {
-      playEditedBtn.textContent = 'Play Edited Audio';
-    });
-
-    downloadEditedBtn.addEventListener('click', () => {
-      if (!editedAudioBlob) return;
-      const base = (selectedFile?.name || "audio").replace(/\.[^/.]+$/, "");
-      const a = document.createElement('a');
-      a.href = editedAudioUrl;
-      a.download = `${base}_edited.wav`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      showToast('Download started!');
-    });
-
-    // --- Unified Copy Actions ---
-    copyAllWithTsBtn.addEventListener('click', () => {
+    copyAllWithTsBtn.addEventListener('click', async () => {
       const txt = unifiedTextArea.value;
-      if (txt) {
-        navigator.clipboard.writeText(txt).then(() => showToast('Copied transcript with timestamps!'));
-      }
+      if (!txt) return;
+      haptic();
+      showToast((await copyText(txt)) ? 'Copied transcript with timestamps!' : 'Copy failed. Select the text manually.');
+    });
+    copyCleanTextBtn.addEventListener('click', async () => {
+      const clean = currentSegments.filter(s => !deletedSegmentIds.has(s.id)).map(s => s.text.trim()).join(' ');
+      if (!clean) return;
+      haptic();
+      showToast((await copyText(clean)) ? 'Copied clean text!' : 'Copy failed. Select the text manually.');
     });
 
-    copyCleanTextBtn.addEventListener('click', () => {
+    exportJsonBtn.addEventListener('click', async () => {
       const kept = currentSegments.filter(s => !deletedSegmentIds.has(s.id));
-      const clean = kept.map(s => s.text.trim()).join(' ');
-      if (clean) {
-        navigator.clipboard.writeText(clean).then(() => showToast('Copied clean text!'));
-      }
+      if (!kept.length) return;
+      const payload = {
+        file: selectedFile ? selectedFile.name : null,
+        duration: decodedBuf ? +decodedBuf.duration.toFixed(3) : null,
+        model: modelSelect.value,
+        snapped: lastSnapped,
+        sentences: kept.map(s => ({
+          start: +s.start.toFixed(3), end: +s.end.toFixed(3), text: s.text, doubtful: !!s.doubtful, reasons: s.reasons || [],
+          pause_after: s.pauseAfter ? +s.pauseAfter.toFixed(3) : 0,
+          words: (s.words || []).map(w => ({ w: w.w, s: +w.s.toFixed(3), e: +w.e.toFixed(3) }))
+        }))
+      };
+      const json = JSON.stringify(payload, null, 2);
+      const base = (selectedFile?.name || 'audio').replace(/\.[^/.]+$/, '');
+      const file = new File([json], `${base}_words.json`, { type: 'application/json' });
+      haptic();
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: file.name }); return; }
+      } catch (e) { if (e && e.name === 'AbortError') return; }
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a'); a.href = url; a.download = file.name;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      showToast('JSON saved');
     });
 
     clearBtn.addEventListener('click', () => {
-      currentSegments = [];
-      deletedSegmentIds.clear();
-      editedAudioBlob = null;
-      sentencesCard.style.display = 'none';
-      unifiedCard.style.display = 'none';
-      rebuiltCard.style.display = 'none';
+      resetResults();
       stopAllPlayback();
+      lsDel('flowmate_last');
+      renderRestoreCard();
     });
 
-    // --- Helper: Convert AudioBuffer to WAV Blob ---
-    function audioBufferToWav(buffer) {
-      const numOfChan = buffer.numberOfChannels;
-      const length = buffer.length * numOfChan * 2 + 44;
-      const out = new DataView(new ArrayBuffer(length));
-      const channels = [];
-      let offset = 0;
-      let pos = 0;
+    /* ---------- Last transcript (text only) ---------- */
+    let saveTimer = null;
+    function saveLast() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        if (!currentSegments.length) return;
+        lsSet('flowmate_last', JSON.stringify({
+          name: selectedFile ? selectedFile.name : '', ts: Date.now(),
+          deleted: [...deletedSegmentIds], sentences: currentSegments
+        }));
+      }, 400);
+    }
+    function renderRestoreCard() {
+      const raw = lsGet('flowmate_last');
+      if (!raw || currentSegments.length) { restoreCard.style.display = 'none'; return; }
+      try {
+        const d = JSON.parse(raw);
+        restoreMeta.textContent = `${d.name || 'Untitled'} · ${d.sentences.length} sentences · ${new Date(d.ts).toLocaleString()}`;
+        restoreCard.style.display = 'block';
+      } catch (_) { restoreCard.style.display = 'none'; }
+    }
+    restoreBtn.addEventListener('click', () => {
+      try {
+        const d = JSON.parse(lsGet('flowmate_last'));
+        currentSegments = d.sentences; deletedSegmentIds.clear(); (d.deleted || []).forEach(i => deletedSegmentIds.add(i));
+        sourceIsEdited = false;
+        renderSentencesList();
+        restoreCard.style.display = 'none';
+        showToast('Text restored. Choose the audio again to play or cut.');
+      } catch (_) { showToast('Could not restore'); }
+    });
+    forgetBtn.addEventListener('click', () => { lsDel('flowmate_last'); renderRestoreCard(); });
 
-      function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
-      function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
+    /* =====================================================================
+       Cutting & rebuilding audio
+       ===================================================================== */
+    rebuildAudioBtn.addEventListener('click', async () => {
+      if (deletedSegmentIds.size === 0 || !decodedBuf) return;
+      stopAllPlayback();
+      setBusy(true);
+      setProgress('Splicing audio in the browser...');
+      try {
+        await new Promise(r => setTimeout(r, 30));
+        const PAD = 0.03, FADE = 0.006;
+        const buf = decodedBuf, sr = buf.sampleRate, ch = buf.numberOfChannels;
+        const kept = currentSegments.filter(s => !deletedSegmentIds.has(s.id));
 
-      setUint32(0x46464952);
-      setUint32(length - 8);
-      setUint32(0x45564157);
+        // pad each kept range slightly and merge overlaps so nothing is duplicated
+        const ranges = [];
+        for (const s of kept) {
+          const a = Math.max(0, s.start - PAD), b = Math.min(buf.duration, s.end + PAD);
+          const last = ranges[ranges.length - 1];
+          if (last && a <= last.e) { last.e = Math.max(last.e, b); last.lines.push(s); }
+          else ranges.push({ s: a, e: b, lines: [s] });
+        }
+        let outLen = 0;
+        for (const r of ranges) {
+          r.i0 = Math.floor(r.s * sr); r.i1 = Math.min(buf.length, Math.floor(r.e * sr));
+          r.len = Math.max(0, r.i1 - r.i0); r.outOff = outLen; outLen += r.len;
+        }
+        if (outLen === 0) throw new Error('No audio kept');
 
-      setUint32(0x20746d66);
-      setUint32(16);
-      setUint16(1);
-      setUint16(numOfChan);
-      setUint32(buffer.sampleRate);
-      setUint32(buffer.sampleRate * 2 * numOfChan);
-      setUint16(numOfChan * 2);
-      setUint16(16);
+        const out = new (window.AudioContext || window.webkitAudioContext)().createBuffer(ch, outLen, sr);
+        const fadeN = Math.floor(FADE * sr);
+        for (let c = 0; c < ch; c++) {
+          const src = buf.getChannelData(c), dst = out.getChannelData(c);
+          for (const r of ranges) {
+            dst.set(src.subarray(r.i0, r.i0 + r.len), r.outOff);
+            for (let i = 0; i < fadeN && i < r.len; i++) {
+              const g = i / fadeN;
+              dst[r.outOff + i] *= g; dst[r.outOff + r.len - 1 - i] *= g;
+            }
+          }
+        }
 
-      setUint32(0x61746164);
-      setUint32(length - pos - 4);
+        const wavBlob = audioBufferToWav(out);
+        if (editedAudioUrl) URL.revokeObjectURL(editedAudioUrl);
+        editedAudioBlob = wavBlob; editedAudioUrl = URL.createObjectURL(wavBlob);
+        editedAudioPlayer.src = editedAudioUrl;
 
-      for (let i = 0; i < buffer.numberOfChannels; i++) {
-        channels.push(buffer.getChannelData(i));
+        // remap timestamps (sentences and words) into the new timeline
+        const remapped = [];
+        for (const r of ranges) {
+          for (const s of r.lines) {
+            const delta = (r.outOff / sr) - r.s;
+            remapped.push({ ...s, id: remapped.length, start: s.start + delta, end: s.end + delta,
+              words: (s.words || []).map(w => ({ ...w, s: w.s + delta, e: w.e + delta })) });
+          }
+        }
+        addPauseInfo(remapped);
+        currentSegments = remapped;
+        deletedSegmentIds.clear();
+        decodedBuf = out;
+        envelope = null;
+        sourceIsEdited = true;
+        renderSentencesList();
+        saveLast();
+
+        rebuiltMetaText.textContent = `Duration: ${formatTimestamp(out.duration)} · Size: ${formatFileSize(wavBlob.size)}`;
+        rebuiltCard.style.display = 'block';
+        showToast('Audio spliced and rebuilt!');
+      } catch (err) {
+        showToast('Audio rebuild error: ' + err.message);
+      } finally {
+        setBusy(false);
       }
+    });
 
-      while (offset < buffer.length) {
-        for (let i = 0; i < numOfChan; i++) {
-          let sample = Math.max(-1, Math.min(1, channels[i][offset]));
-          sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
-          out.setInt16(pos, sample, true);
+    playEditedBtn.addEventListener('click', () => {
+      if (!editedAudioPlayer.src) return;
+      playStopAt = null;
+      if (!editedAudioPlayer.paused) { editedAudioPlayer.pause(); playEditedBtn.textContent = 'Play Edited Audio'; }
+      else {
+        audioPlayer.pause(); playPreviewBtn.textContent = 'Resume Preview';
+        editedAudioPlayer.play(); playEditedBtn.textContent = 'Pause Edited Audio';
+      }
+    });
+    editedAudioPlayer.addEventListener('ended', () => { playEditedBtn.textContent = 'Play Edited Audio'; });
+
+    downloadEditedBtn.addEventListener('click', async () => {
+      if (!editedAudioBlob) return;
+      const base = (selectedFile?.name || 'audio').replace(/\.[^/.]+$/, '');
+      const file = new File([editedAudioBlob], `${base}_edited.wav`, { type: 'audio/wav' });
+      try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; } }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+      const a = document.createElement('a');
+      a.href = editedAudioUrl; a.download = file.name;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      showToast('Download started!');
+    });
+
+    // AudioBuffer -> 16-bit PCM WAV
+    function audioBufferToWav(buffer) {
+      const numCh = buffer.numberOfChannels;
+      const dataLen = buffer.length * numCh * 2;
+      const view = new DataView(new ArrayBuffer(44 + dataLen));
+      let pos = 0;
+      const u16 = (v) => { view.setUint16(pos, v, true); pos += 2; };
+      const u32 = (v) => { view.setUint32(pos, v, true); pos += 4; };
+      u32(0x46464952); u32(36 + dataLen); u32(0x45564157);
+      u32(0x20746d66); u32(16); u16(1); u16(numCh); u32(buffer.sampleRate); u32(buffer.sampleRate * 2 * numCh); u16(numCh * 2); u16(16);
+      u32(0x61746164); u32(dataLen);
+      const chans = [];
+      for (let i = 0; i < numCh; i++) chans.push(buffer.getChannelData(i));
+      for (let n = 0; n < buffer.length; n++) {
+        for (let c = 0; c < numCh; c++) {
+          const x = Math.max(-1, Math.min(1, chans[c][n]));
+          view.setInt16(pos, x < 0 ? x * 32768 : x * 32767, true);
           pos += 2;
         }
-        offset++;
       }
-
-      return new Blob([out.buffer], { type: 'audio/wav' });
+      return new Blob([view.buffer], { type: 'audio/wav' });
     }
+
+    /* =====================================================================
+       PWA: install prompt, offline state, service worker, shared audio
+       ===================================================================== */
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; if (!isStandalone) installBtn.classList.add('show'); });
+    installBtn.addEventListener('click', async () => {
+      if (!deferredInstall) return;
+      deferredInstall.prompt();
+      await deferredInstall.userChoice.catch(() => {});
+      deferredInstall = null; installBtn.classList.remove('show');
+    });
+    window.addEventListener('appinstalled', () => { installBtn.classList.remove('show'); showToast('Installed!'); });
+
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS && !isStandalone && lsGet('flowmate_ios_hint') !== '1') iosHint.classList.add('show');
+    $('iosHintClose').addEventListener('click', () => { iosHint.classList.remove('show'); lsSet('flowmate_ios_hint', '1'); });
+
+    function syncOnline() { document.body.classList.toggle('offline', !navigator.onLine); }
+    window.addEventListener('online', syncOnline); window.addEventListener('offline', syncOnline); syncOnline();
+
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      const hadController = !!navigator.serviceWorker.controller;   // first install must not trigger a reload
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then((reg) => {
+          reg.addEventListener('updatefound', () => {
+            const nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', () => {
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                showToast('New version ready. Tap to update', { sticky: true, onTap: () => { nw.postMessage('SKIP_WAITING'); } });
+              }
+            });
+          });
+        }).catch(() => {});
+        let reloaded = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => { if (!hadController || reloaded) return; reloaded = true; if (!activeXhr) location.reload(); });
+      });
+    }
+
+    async function loadSharedAudio() {
+      if (!/[?&]shared=1/.test(location.search) || !('caches' in window)) return;
+      try {
+        const cache = await caches.open('flowmate-share');
+        const res = await cache.match('shared-audio');
+        if (res) {
+          const blob = await res.blob();
+          const name = decodeURIComponent(res.headers.get('X-File-Name') || 'shared-audio');
+          await cache.delete('shared-audio');
+          loadFile(new File([blob], name, { type: blob.type || 'audio/mpeg' }));
+          showToast('Audio received. Tap Transcribe.');
+        }
+      } catch (_) {}
+      history.replaceState(null, '', location.pathname);
+    }
+    loadSharedAudio();
+    renderRestoreCard();
   </script>
 </body>
 </html>
