@@ -1,60 +1,20 @@
 const YT_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"]);
 const MAX_PROXY_CHUNK = 4 * 1024 * 1024; // Keep below Vercel's 4.5 MB response limit.
 
-const YT_CLIENT_TYPES = ["WEB", "iOS", "ANDROID"];
-const ytClientPromises = new Map();
+const YT_CLIENTS = ["WEB", "ANDROID", "YTMUSIC", "YTMUSIC_ANDROID", "TV_EMBEDDED"];
+let ytClientPromise = null;
 
-function json(res, status, body, extraHeaders = {}) {
-  res.status(status);
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Cache-Control", "no-store");
-  for (const [key, value] of Object.entries(extraHeaders)) res.setHeader(key, value);
-  res.end(JSON.stringify(body));
-}
-
-function isAllowedYouTubeHost(hostname) {
-  const host = hostname.toLowerCase();
-  return YT_HOSTS.has(host) || host.endsWith(".youtube.com");
-}
-
-function extractVideoId(rawUrl) {
-  const url = new URL(rawUrl);
-  if (!isAllowedYouTubeHost(url.hostname)) throw new Error("Only YouTube URLs are supported.");
-
-  if (url.hostname === "youtu.be") {
-    const id = url.pathname.split("/").filter(Boolean)[0];
-    if (id) return id;
-  }
-
-  const queryId = url.searchParams.get("v");
-  if (queryId) return queryId;
-
-  const parts = url.pathname.split("/").filter(Boolean);
-  const markerIndex = parts.findIndex((part) => ["shorts", "embed", "live"].includes(part));
-  if (markerIndex >= 0 && parts[markerIndex + 1]) return parts[markerIndex + 1];
-
-  throw new Error("Could not find a YouTube video ID in that URL.");
-}
-
-async function getYouTubeClient(clientType = "WEB") {
-  if (!ytClientPromises.has(clientType)) {
-    ytClientPromises.set(
-      clientType,
-      import("youtubei.js").then(({ Innertube }) => {
-        const options = {
-          lang: "en",
-          location: "US",
-          // Do not force a locally generated session. YouTube may omit
-          // playback/streaming data for locally generated WEB sessions.
-          generate_session_locally: false,
-        };
-
-        if (clientType !== "WEB") options.client_type = clientType;
-        return Innertube.create(options);
+async function getYouTubeClient() {
+  if (!ytClientPromise) {
+    ytClientPromise = import("youtubei.js").then(({ Innertube }) =>
+      Innertube.create({
+        lang: "en",
+        location: "US",
+        generate_session_locally: false,
       })
     );
   }
-  return ytClientPromises.get(clientType);
+  return ytClientPromise;
 }
 
 function getFormatValue(format, ...keys) {
@@ -67,29 +27,25 @@ function getFormatValue(format, ...keys) {
 
 async function resolveAudio(rawUrl) {
   const videoId = extractVideoId(rawUrl);
+  const yt = await getYouTubeClient();
   const errors = [];
 
-  for (const clientType of YT_CLIENT_TYPES) {
+  for (const client of YT_CLIENTS) {
     try {
-      const yt = await getYouTubeClient(clientType);
-      const info = await yt.getBasicInfo(videoId);
+      const info = await yt.getBasicInfo(videoId, { client });
 
       let format =
         info.chooseFormat({ type: "audio", quality: "best", format: "mp4", codec: "mp4a" }) ||
         info.chooseFormat({ type: "audio", quality: "best", format: "mp4" }) ||
         info.chooseFormat({ type: "audio", quality: "best" });
 
-      if (!format) {
-        throw new Error("No compatible audio-only stream was found.");
-      }
+      if (!format) throw new Error("No compatible audio-only stream was found.");
 
       const audioUrl = typeof format.decipher === "function"
         ? await format.decipher(yt.session.player)
         : getFormatValue(format, "url");
 
-      if (!audioUrl) {
-        throw new Error("YouTube returned an audio format without a usable stream URL.");
-      }
+      if (!audioUrl) throw new Error("YouTube returned an audio format without a usable stream URL.");
 
       const mimeType = String(getFormatValue(format, "mime_type", "mimeType") || "audio/mp4")
         .split(";")[0]
@@ -113,17 +69,12 @@ async function resolveAudio(rawUrl) {
       };
     } catch (error) {
       const message = error?.message || String(error);
-      errors.push(clientType + ": " + message);
-      console.warn("YouTube " + clientType + " client failed:", error);
+      errors.push(client + ": " + message);
+      console.warn("YouTube client " + client + " failed:", error);
     }
   }
 
-  const detail = errors.find((message) => /streaming data|playable|audio-only/i.test(message));
-  throw new Error(
-    detail
-      ? "YouTube could not provide a playable audio stream (" + detail + ")."
-      : "YouTube could not provide a playable audio stream for this video."
-  );
+  throw new Error("YouTube could not provide a playable audio stream. Attempts: " + errors.join(" | "));
 }
 
 function validateProxySource(rawSource) {
