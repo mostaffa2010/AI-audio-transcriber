@@ -9,6 +9,36 @@ function json(res, status, body, extraHeaders = {}) {
   res.end(JSON.stringify(body));
 }
 
+function extractVideoId(rawUrl) {
+  const url = new URL(rawUrl);
+  const host = url.hostname.toLowerCase();
+
+  if (!(
+    host === "youtube.com" ||
+    host === "www.youtube.com" ||
+    host === "m.youtube.com" ||
+    host === "music.youtube.com" ||
+    host === "youtu.be" ||
+    host.endsWith(".youtube.com")
+  )) {
+    throw new Error("Only YouTube URLs are supported.");
+  }
+
+  if (host === "youtu.be") {
+    const id = url.pathname.split("/").filter(Boolean)[0];
+    if (id) return id;
+  }
+
+  const queryId = url.searchParams.get("v");
+  if (queryId) return queryId;
+
+  const parts = url.pathname.split("/").filter(Boolean);
+  const markerIndex = parts.findIndex((part) => ["shorts", "embed", "live"].includes(part));
+  if (markerIndex >= 0 && parts[markerIndex + 1]) return parts[markerIndex + 1];
+
+  throw new Error("Could not find a YouTube video ID in that URL.");
+}
+
 const YT_CLIENTS = ["WEB", "ANDROID", "YTMUSIC", "YTMUSIC_ANDROID", "TV_EMBEDDED"];
 let ytClientPromise = null;
 
