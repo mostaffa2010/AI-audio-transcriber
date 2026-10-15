@@ -1,7 +1,8 @@
 const YT_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"]);
 const MAX_PROXY_CHUNK = 4 * 1024 * 1024; // Keep below Vercel's 4.5 MB response limit.
 
-let ytClientPromise = null;
+const YT_CLIENT_TYPES = ["WEB", "iOS", "ANDROID"];
+const ytClientPromises = new Map();
 
 function json(res, status, body, extraHeaders = {}) {
   res.status(status);
@@ -35,17 +36,25 @@ function extractVideoId(rawUrl) {
   throw new Error("Could not find a YouTube video ID in that URL.");
 }
 
-async function getYouTubeClient() {
-  if (!ytClientPromise) {
-    ytClientPromise = import("youtubei.js").then(({ Innertube }) =>
-      Innertube.create({
-        generate_session_locally: true,
-        lang: "en",
-        location: "US",
+async function getYouTubeClient(clientType = "WEB") {
+  if (!ytClientPromises.has(clientType)) {
+    ytClientPromises.set(
+      clientType,
+      import("youtubei.js").then(({ Innertube }) => {
+        const options = {
+          lang: "en",
+          location: "US",
+          // Do not force a locally generated session. YouTube may omit
+          // playback/streaming data for locally generated WEB sessions.
+          generate_session_locally: false,
+        };
+
+        if (clientType !== "WEB") options.client_type = clientType;
+        return Innertube.create(options);
       })
     );
   }
-  return ytClientPromise;
+  return ytClientPromises.get(clientType);
 }
 
 function getFormatValue(format, ...keys) {
@@ -58,39 +67,63 @@ function getFormatValue(format, ...keys) {
 
 async function resolveAudio(rawUrl) {
   const videoId = extractVideoId(rawUrl);
-  const yt = await getYouTubeClient();
-  const info = await yt.getBasicInfo(videoId);
+  const errors = [];
 
-  let format =
-    info.chooseFormat({ type: "audio", quality: "best", format: "mp4", codec: "mp4a" }) ||
-    info.chooseFormat({ type: "audio", quality: "best", format: "mp4" }) ||
-    info.chooseFormat({ type: "audio", quality: "best" });
+  for (const clientType of YT_CLIENT_TYPES) {
+    try {
+      const yt = await getYouTubeClient(clientType);
+      const info = await yt.getBasicInfo(videoId);
 
-  if (!format) throw new Error("No compatible audio-only stream was found for this video.");
+      let format =
+        info.chooseFormat({ type: "audio", quality: "best", format: "mp4", codec: "mp4a" }) ||
+        info.chooseFormat({ type: "audio", quality: "best", format: "mp4" }) ||
+        info.chooseFormat({ type: "audio", quality: "best" });
 
-  const audioUrl = typeof format.decipher === "function"
-    ? format.decipher(yt.session.player)
-    : getFormatValue(format, "url");
+      if (!format) {
+        throw new Error("No compatible audio-only stream was found.");
+      }
 
-  if (!audioUrl) throw new Error("YouTube returned an audio format without a usable stream URL.");
+      const audioUrl = typeof format.decipher === "function"
+        ? await format.decipher(yt.session.player)
+        : getFormatValue(format, "url");
 
-  const mimeType = String(getFormatValue(format, "mime_type", "mimeType") || "audio/mp4")
-    .split(";")[0]
-    .trim();
+      if (!audioUrl) {
+        throw new Error("YouTube returned an audio format without a usable stream URL.");
+      }
 
-  const contentLengthRaw = getFormatValue(format, "content_length", "contentLength");
-  const contentLength = Number(contentLengthRaw);
-  const durationMs = Number(getFormatValue(format, "approx_duration_ms", "approxDurationMs")) || 0;
-  const title = String(info?.basic_info?.title || "YouTube Podcast");
+      const mimeType = String(getFormatValue(format, "mime_type", "mimeType") || "audio/mp4")
+        .split(";")[0]
+        .trim();
 
-  return {
-    videoId,
-    title,
-    audioUrl,
-    mimeType,
-    contentLength: Number.isFinite(contentLength) && contentLength > 0 ? contentLength : null,
-    durationSeconds: durationMs > 0 ? durationMs / 1000 : null,
-  };
+      const contentLengthRaw = getFormatValue(format, "content_length", "contentLength");
+      const contentLength = Number(contentLengthRaw);
+      const durationMs =
+        Number(getFormatValue(format, "approx_duration_ms", "approxDurationMs")) ||
+        Number(info?.basic_info?.duration) * 1000 ||
+        0;
+      const title = String(info?.basic_info?.title || "YouTube Podcast");
+
+      return {
+        videoId,
+        title,
+        audioUrl,
+        mimeType,
+        contentLength: Number.isFinite(contentLength) && contentLength > 0 ? contentLength : null,
+        durationSeconds: durationMs > 0 ? durationMs / 1000 : null,
+      };
+    } catch (error) {
+      const message = error?.message || String(error);
+      errors.push(clientType + ": " + message);
+      console.warn("YouTube " + clientType + " client failed:", error);
+    }
+  }
+
+  const detail = errors.find((message) => /streaming data|playable|audio-only/i.test(message));
+  throw new Error(
+    detail
+      ? "YouTube could not provide a playable audio stream (" + detail + ")."
+      : "YouTube could not provide a playable audio stream for this video."
+  );
 }
 
 function validateProxySource(rawSource) {
