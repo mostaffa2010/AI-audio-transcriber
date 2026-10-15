@@ -1,5 +1,4 @@
-const YT_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"]);
-const MAX_PROXY_CHUNK = 4 * 1024 * 1024; // Keep below Vercel's 4.5 MB response limit.
+const MAX_PROXY_CHUNK = 4 * 1024 * 1024;
 
 function json(res, status, body, extraHeaders = {}) {
   res.status(status);
@@ -13,14 +12,8 @@ function extractVideoId(rawUrl) {
   const url = new URL(rawUrl);
   const host = url.hostname.toLowerCase();
 
-  if (!(
-    host === "youtube.com" ||
-    host === "www.youtube.com" ||
-    host === "m.youtube.com" ||
-    host === "music.youtube.com" ||
-    host === "youtu.be" ||
-    host.endsWith(".youtube.com")
-  )) {
+  if (!(host === "youtube.com" || host === "www.youtube.com" || host === "m.youtube.com" ||
+        host === "music.youtube.com" || host === "youtu.be" || host.endsWith(".youtube.com"))) {
     throw new Error("Only YouTube URLs are supported.");
   }
 
@@ -39,89 +32,43 @@ function extractVideoId(rawUrl) {
   throw new Error("Could not find a YouTube video ID in that URL.");
 }
 
-const YT_CLIENTS = ["ANDROID_VR", "IOS", "WEB_EMBEDDED", "WEB", "ANDROID", "YTMUSIC", "YTMUSIC_ANDROID", "TV_EMBEDDED"];
-let ytClientPromise = null;
-
-async function getYouTubeClient() {
-  if (!ytClientPromise) {
-    ytClientPromise = import("youtubei.js").then(({ Innertube }) =>
-      Innertube.create({
-        lang: "en",
-        location: "US",
-        generate_session_locally: false,
-      })
-    );
-  }
-  return ytClientPromise;
+function getResolverUrl() {
+  const value = String(process.env.YOUTUBE_RESOLVER_URL || "").trim().replace(/\/+$/, "");
+  if (!value) throw new Error("YouTube resolver is not configured.");
+  return value;
 }
 
-function getFormatValue(format, ...keys) {
-  for (const key of keys) {
-    const value = format?.[key];
-    if (value !== undefined && value !== null && value !== "") return value;
-  }
-  return null;
-}
+async function resolveWithExternalResolver(rawUrl) {
+  const target = new URL("/resolve", getResolverUrl());
+  target.searchParams.set("url", rawUrl);
 
-async function resolveAudio(rawUrl) {
-  const videoId = extractVideoId(rawUrl);
-  const yt = await getYouTubeClient();
-  const errors = [];
+  const headers = { Accept: "application/json" };
+  const apiKey = String(process.env.YOUTUBE_RESOLVER_API_KEY || "").trim();
+  if (apiKey) headers["X-Resolver-Key"] = apiKey;
 
-  for (const client of YT_CLIENTS) {
-    try {
-      const info = await yt.getBasicInfo(videoId, { client });
+  const upstream = await fetch(target, { headers });
+  const bodyText = await upstream.text();
 
-      const format =
-        info.chooseFormat({ type: "audio", quality: "best", format: "mp4", codec: "mp4a" }) ||
-        info.chooseFormat({ type: "audio", quality: "best", format: "mp4" }) ||
-        info.chooseFormat({ type: "audio", quality: "best" });
-
-      if (!format) throw new Error("No compatible audio-only stream was found.");
-
-      const audioUrl = typeof format.decipher === "function"
-        ? await format.decipher(yt.session.player)
-        : getFormatValue(format, "url");
-
-      if (!audioUrl) throw new Error("YouTube returned an audio format without a usable stream URL.");
-
-      const mimeType = String(getFormatValue(format, "mime_type", "mimeType") || "audio/mp4")
-        .split(";")[0]
-        .trim();
-
-      const contentLengthRaw = getFormatValue(format, "content_length", "contentLength");
-      const contentLength = Number(contentLengthRaw);
-      const durationMs =
-        Number(getFormatValue(format, "approx_duration_ms", "approxDurationMs")) ||
-        Number(info?.basic_info?.duration) * 1000 ||
-        0;
-      const title = String(info?.basic_info?.title || "YouTube Podcast");
-
-      return {
-        videoId,
-        title,
-        audioUrl,
-        mimeType,
-        contentLength: Number.isFinite(contentLength) && contentLength > 0 ? contentLength : null,
-        durationSeconds: durationMs > 0 ? durationMs / 1000 : null,
-      };
-    } catch (error) {
-      const message = error?.message || String(error);
-      errors.push(client + ": " + message);
-      console.warn("YouTube client " + client + " failed:", error);
-    }
+  let body;
+  try {
+    body = JSON.parse(bodyText);
+  } catch {
+    body = { error: bodyText || "Resolver returned an invalid response." };
   }
 
-  throw new Error("YouTube could not provide a playable audio stream. Attempts: " + errors.join(" | "));
+  if (!upstream.ok) {
+    throw new Error(body?.detail || body?.error || `YouTube resolver HTTP ${upstream.status}`);
+  }
+  if (!body?.audioUrl) throw new Error("Resolver did not return an audio stream.");
+
+  return body;
 }
 
 function validateProxySource(rawSource) {
   const source = new URL(rawSource);
   const host = source.hostname.toLowerCase();
   const allowed = host === "googlevideo.com" || host.endsWith(".googlevideo.com");
-  if (source.protocol !== "https:" || !allowed) {
-    throw new Error("Invalid audio source.");
-  }
+  if (source.protocol !== "https:" || !allowed) throw new Error("Invalid audio source.");
   return source;
 }
 
@@ -130,14 +77,12 @@ function parseRangeHeader(value, totalLength) {
   if (!match) throw new Error("Invalid byte range.");
 
   const start = Number(match[1]);
-  const end = Math.min(Number(match[2]), totalLength ? totalLength - 1 : start + MAX_PROXY_CHUNK - 1);
+  const end = Math.min(match[2], totalLength ? totalLength - 1 : start + MAX_PROXY_CHUNK - 1);
 
   if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start) {
     throw new Error("Invalid byte range.");
   }
-  if (end - start + 1 > MAX_PROXY_CHUNK) {
-    throw new Error("Requested range is too large.");
-  }
+  if (end - start + 1 > MAX_PROXY_CHUNK) throw new Error("Requested range is too large.");
   return { start, end };
 }
 
@@ -178,8 +123,9 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const rawUrl = String(req.query?.url || "");
       if (!rawUrl) return json(res, 400, { error: "Missing YouTube URL." });
-      const data = await resolveAudio(rawUrl);
-      return json(res, 200, data);
+
+      extractVideoId(rawUrl);
+      return json(res, 200, await resolveWithExternalResolver(rawUrl));
     }
 
     if (req.method === "POST") {
