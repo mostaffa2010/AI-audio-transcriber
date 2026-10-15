@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ai-audio-youtube-resolver
+    runtime: docker
+    plan: free
+    rootDir: youtube-resolver
+    healthCheckPath: /
+    envVars:
+      - key: RESOLVER_API_KEY
+        generateValue: true
