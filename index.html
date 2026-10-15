@@ -309,6 +309,17 @@
     }
     .mini-note { font-size: 0.76rem; color: var(--on-surface-variant); margin-top: 8px; line-height: 1.5; }
 
+    /* ---------- AI clip finder ---------- */
+    .clip-finder-card { display: none; }
+    .clip-result { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 10px; background: var(--surface-variant); }
+    .clip-result-top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .clip-score { font-weight:800; color:var(--primary-dark); white-space:nowrap; }
+    .clip-time { font-family:ui-monospace,Menlo,monospace; font-size:.78rem; color:var(--on-surface-variant); direction:ltr; }
+    .clip-hook { font-weight:800; margin:6px 0; }
+    .clip-reason { font-size:.82rem; color:var(--on-surface-variant); line-height:1.5; }
+    .clip-actions { display:flex; gap:8px; margin-top:9px; }
+    .clip-actions button { flex:1; min-height:40px; }
+
     /* ---------- Toast / banners ---------- */
     .toast {
       position: fixed; left: 50%; bottom: calc(var(--sab) + 92px);
@@ -385,6 +396,23 @@
             <button class="icon-btn" id="toggleKeyBtn" type="button" aria-label="Show or hide key">Show</button>
           </div>
           <div class="mini-note">Stored only on this device. It is sent only to api.groq.com.</div>
+        </div>
+
+        <div>
+          <label class="input-label" for="geminiApiKeyInput">Google AI Studio API Key</label>
+          <div class="key-row">
+            <input type="password" class="text-input" id="geminiApiKeyInput" placeholder="AIza..." autocomplete="off" autocapitalize="off" spellcheck="false">
+            <button class="icon-btn" id="toggleGeminiKeyBtn" type="button" aria-label="Show or hide Gemini key">Show</button>
+          </div>
+          <div class="mini-note">Used only for transcript analysis. The podcast audio is not sent to Gemini.</div>
+        </div>
+
+        <div>
+          <label class="input-label" for="geminiModelSelect">Gemini model</label>
+          <select class="text-input" id="geminiModelSelect">
+            <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (recommended)</option>
+            <option value="gemini-3.8-flash">gemini-3.8-flash</option>
+          </select>
         </div>
 
         <div>
@@ -476,6 +504,17 @@
         <button class="btn-outline" id="restoreBtn" type="button">Restore text</button>
         <button class="btn-danger-text" id="forgetBtn" type="button">Forget</button>
       </div>
+    </div>
+
+    <!-- AI Short clips -->
+    <div class="card clip-finder-card" id="clipFinderCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <div class="card-title">Best Short Clips</div>
+        <div style="font-size:.8rem;font-weight:700;color:var(--primary);" id="clipCountBadge">0 clips</div>
+      </div>
+      <div class="card-sub" style="margin-bottom:10px;">Gemini scores the transcript only. Audio stays on your device.</div>
+      <div id="clipResultsContainer"></div>
+      <button class="btn-primary" id="findClipsBtn" type="button" style="width:100%;margin-top:10px;">Find Best Clips with Gemini</button>
     </div>
 
     <div class="action-bar">
@@ -831,6 +870,9 @@
     const playPreviewBtn = $('playPreviewBtn'), scrubberContainer = $('scrubberContainer');
     const seekSlider = $('seekSlider'), curTimeText = $('curTimeText'), totalTimeText = $('totalTimeText');
     const apiKeyInput = $('apiKeyInput'), toggleKeyBtn = $('toggleKeyBtn');
+    const geminiApiKeyInput = $('geminiApiKeyInput'), toggleGeminiKeyBtn = $('toggleGeminiKeyBtn');
+    const geminiModelSelect = $('geminiModelSelect');
+
     const modelSelect = $('modelSelect'), promptInput = $('promptInput'), resetPromptBtn = $('resetPromptBtn');
     const snapToggle = $('snapToggle'), markToggle = $('markToggle'), settingsCard = $('settingsCard');
     const transcribeBtn = $('transcribeBtn'), cancelBtn = $('cancelBtn');
@@ -846,8 +888,21 @@
     const toastEl = $('toast');
     const audioPlayer = $('audioPlayer'), editedAudioPlayer = $('editedAudioPlayer');
     const installBtn = $('installBtn'), iosHint = $('iosHint');
+    const clipFinderCard = $('clipFinderCard'), clipResultsContainer = $('clipResultsContainer');
+    const clipCountBadge = $('clipCountBadge'), findClipsBtn = $('findClipsBtn');
+
 
     /* ---------- Persisted settings ---------- */
+    geminiApiKeyInput.value = lsGet('flowmate_gemini_key', '') || '';
+    geminiModelSelect.value = lsGet('flowmate_gemini_model', 'gemini-3.5-flash-lite') || 'gemini-3.5-flash-lite';
+    geminiApiKeyInput.addEventListener('input', () => lsSet('flowmate_gemini_key', geminiApiKeyInput.value.trim()));
+    geminiModelSelect.addEventListener('change', () => lsSet('flowmate_gemini_model', geminiModelSelect.value));
+    toggleGeminiKeyBtn.addEventListener('click', () => {
+      const hidden = geminiApiKeyInput.type === 'password';
+      geminiApiKeyInput.type = hidden ? 'text' : 'password';
+      toggleGeminiKeyBtn.textContent = hidden ? 'Hide' : 'Show';
+    });
+
     apiKeyInput.value = lsGet('flowmate_groq_key', '') || '';
     apiKeyInput.addEventListener('input', () => lsSet('flowmate_groq_key', apiKeyInput.value.trim()));
     if (!apiKeyInput.value) settingsCard.open = true;
@@ -924,6 +979,9 @@
       sentencesCard.style.display = 'none';
       unifiedCard.style.display = 'none';
       rebuiltCard.style.display = 'none';
+      clipFinderCard.style.display = 'none';
+      clipResultsContainer.innerHTML = '';
+      clipCountBadge.textContent = '0 clips';
     }
 
     function loadFile(file) {
@@ -1065,6 +1123,122 @@
     });
 
     /* =====================================================================
+       Gemini AI clip selection
+       ===================================================================== */
+    async function geminiPickClips(apiKey, segments) {
+      const usable = segments.filter(s => !deletedSegmentIds.has(s.id)).map((s, i) => ({
+        i, start: +s.start.toFixed(3), end: +s.end.toFixed(3), text: s.text.trim()
+      }));
+      if (!usable.length) throw new Error('No transcript is available');
+
+      const transcript = usable.map(x => `#${x.i} [${formatTimestamp(x.start)} → ${formatTimestamp(x.end)}] ${x.text}`).join('\n');
+      const prompt = `You are an expert podcast Shorts editor.
+Choose the 3 to 8 strongest standalone clips from this Arabic podcast transcript.
+Goal: clips that work as YouTube Shorts/Reels/TikTok audio clips.
+Prefer a strong hook, surprising insight, useful lesson, emotional moment, clear opinion, story payoff, or highly shareable statement.
+Avoid greetings, introductions, ads, incomplete thoughts, weak filler, and clips that depend on missing context.
+Each clip should normally be 20-60 seconds. You may combine consecutive transcript lines, but NEVER invent timestamps or text.
+Return ONLY valid JSON matching:
+{"clips":[{"start_index":0,"end_index":2,"score":94,"hook":"short hook","reason":"brief reason"}]}
+Rules:
+- start_index and end_index MUST be indices from the supplied transcript.
+- end_index must be >= start_index.
+- Use the smallest consecutive range that makes the clip complete.
+- Score 0-100.
+- Rank best first.
+Transcript:
+${transcript}`;
+
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModelSelect.value)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+        })
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error?.message || `Gemini HTTP ${res.status}`);
+      const raw = body?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+      let parsed;
+      try { parsed = JSON.parse(raw); } catch (_) {
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (!m) throw new Error('Gemini returned invalid JSON');
+        parsed = JSON.parse(m[0]);
+      }
+      return (Array.isArray(parsed.clips) ? parsed.clips : []).map(c => {
+        const a = usable.find(x => x.i === Number(c.start_index));
+        const b = usable.find(x => x.i === Number(c.end_index));
+        if (!a || !b) return null;
+        return {
+          start: a.start, end: b.end,
+          score: Math.max(0, Math.min(100, Number(c.score) || 0)),
+          hook: String(c.hook || '').slice(0, 180),
+          reason: String(c.reason || '').slice(0, 300),
+          text: usable.filter(x => x.i >= a.i && x.i <= b.i).map(x => x.text).join(' ')
+        };
+      }).filter(Boolean).sort((a,b) => b.score - a.score).slice(0, 8);
+    }
+
+    function renderClipResults(clips) {
+      clipResultsContainer.innerHTML = '';
+      clipCountBadge.textContent = `${clips.length} clip${clips.length === 1 ? '' : 's'}`;
+      clips.forEach((clip, i) => {
+        const item = document.createElement('div');
+        item.className = 'clip-result';
+        item.innerHTML = `<div class="clip-result-top"><div><b>Clip ${i + 1}</b><div class="clip-time">[${formatTimestamp(clip.start)} → ${formatTimestamp(clip.end)}] · ${Math.round(clip.end-clip.start)}s</div></div><div class="clip-score">${clip.score}/100</div></div><div class="clip-hook">${escapeHtml(clip.hook)}</div><div class="clip-reason">${escapeHtml(clip.reason)}</div>`;
+        const actions = document.createElement('div');
+        actions.className = 'clip-actions';
+        const play = document.createElement('button');
+        play.className = 'btn-outline'; play.type='button'; play.textContent='▶ Play';
+        play.onclick=()=>{ stopAllPlayback(); audioPlayer.currentTime=Math.max(0,clip.start-.05); playStopAt=clip.end+.05; audioPlayer.play().catch(()=>{}); };
+        const dl = document.createElement('button');
+        dl.className = 'btn-primary'; dl.type='button'; dl.textContent='Save MP3/WAV';
+        dl.onclick=()=>downloadAudioRange(clip.start, clip.end, i+1);
+        actions.append(play,dl); item.appendChild(actions); clipResultsContainer.appendChild(item);
+      });
+    }
+
+    function escapeHtml(v) {
+      return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function downloadAudioRange(start, end, number) {
+      if (!decodedBuf) { showToast('Audio must be locally decoded first'); return; }
+      setBusy(true); setProgress('Rendering clip locally...');
+      try {
+        const sr=decodedBuf.sampleRate, ch=decodedBuf.numberOfChannels;
+        const a=Math.max(0,Math.floor(start*sr)), b=Math.min(decodedBuf.length,Math.ceil(end*sr));
+        const out=new AudioBuffer({length:Math.max(1,b-a),numberOfChannels:ch,sampleRate:sr});
+        for(let c=0;c<ch;c++) out.copyToChannel(decodedBuf.getChannelData(c).slice(a,b),c);
+        const wav=audioBufferToWav(out);
+        const base=(selectedFile?.name||'podcast').replace(/\.[^/.]+$/,'');
+        const file=new File([wav],`${base}_short_${String(number).padStart(2,'0')}.wav`,{type:'audio/wav'});
+        const url=URL.createObjectURL(file), aEl=document.createElement('a');
+        aEl.href=url; aEl.download=file.name; document.body.appendChild(aEl); aEl.click(); aEl.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),4000);
+        showToast('Clip saved');
+      } catch(e) { showToast(e.message||'Could not create clip'); }
+      finally { setBusy(false); }
+    }
+
+    findClipsBtn.addEventListener('click', async () => {
+      const key=geminiApiKeyInput.value.trim();
+      if(!key){ settingsCard.open=true; geminiApiKeyInput.focus(); showToast('Please enter your Google AI Studio API key'); return; }
+      if(!currentSegments.length){ showToast('Transcribe the audio first'); return; }
+      if(!navigator.onLine){ showToast('You are offline'); return; }
+      setBusy(true); setProgress('Gemini is selecting the best clips...');
+      try {
+        const clips=await geminiPickClips(key,currentSegments);
+        if(!clips.length) throw new Error('Gemini did not find suitable clips');
+        renderClipResults(clips);
+        showToast(`${clips.length} candidate clips found`);
+      } catch(e) {
+        showToast(e.message||'Gemini analysis failed',{sticky:true});
+      } finally { setBusy(false); }
+    });
+
+    /* =====================================================================
        Playback
        ===================================================================== */
     function stopAllPlayback() {
@@ -1116,6 +1290,7 @@
       if (currentSegments.length === 0) { sentencesCard.style.display = 'none'; unifiedCard.style.display = 'none'; return; }
       sentencesCard.style.display = 'block';
       unifiedCard.style.display = 'block';
+      clipFinderCard.style.display = 'block';
 
       const activeCount = currentSegments.length - deletedSegmentIds.size;
       sentenceCountBadge.textContent = `${activeCount} active / ${currentSegments.length} total`;
