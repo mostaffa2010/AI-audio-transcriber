@@ -1,6 +1,14 @@
 const YT_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"]);
 const MAX_PROXY_CHUNK = 4 * 1024 * 1024; // Keep below Vercel's 4.5 MB response limit.
 
+function json(res, status, body, extraHeaders = {}) {
+  res.status(status);
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  for (const [key, value] of Object.entries(extraHeaders)) res.setHeader(key, value);
+  res.end(JSON.stringify(body));
+}
+
 const YT_CLIENTS = ["WEB", "ANDROID", "YTMUSIC", "YTMUSIC_ANDROID", "TV_EMBEDDED"];
 let ytClientPromise = null;
 
