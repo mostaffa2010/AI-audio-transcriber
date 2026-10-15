@@ -160,6 +160,12 @@
     .card-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
     .card-sub { font-size: 0.8rem; color: var(--on-surface-variant); line-height: 1.45; }
 
+    /* ---------- YouTube source ---------- */
+    .youtube-card { border: 1px solid var(--primary); }
+    .youtube-url-row { display:flex; gap:8px; align-items:stretch; margin-top:10px; }
+    .youtube-url-row .text-input { flex:1; min-width:0; direction:ltr; }
+    .youtube-source-note { font-size:.76rem; color:var(--on-surface-variant); margin-top:8px; line-height:1.5; }
+
     /* ---------- File card ---------- */
     .file-meta-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
     .wave-icon {
@@ -356,6 +362,17 @@
     <div class="card ios-hint" id="iosHint">
       <b>Install on iPhone:</b> tap the Share button in Safari, then <b>Add to Home Screen</b>.
       <div style="margin-top:8px"><button class="action-link action-undo" id="iosHintClose" type="button">Got it</button></div>
+    </div>
+
+    <!-- YouTube -->
+    <div class="card youtube-card" id="youtubeCard">
+      <div class="card-title">YouTube Podcast</div>
+      <div class="card-sub">Paste a YouTube podcast link. The app fetches the audio stream only; no video is downloaded.</div>
+      <div class="youtube-url-row">
+        <input type="url" class="text-input" id="youtubeUrlInput" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="btn-primary" id="loadYoutubeBtn" type="button" style="flex:0 0 auto;min-width:112px;">Get Audio</button>
+      </div>
+      <div class="youtube-source-note">Use this only for videos you are allowed to download or reuse. The extracted audio stays in your browser after download.</div>
     </div>
 
     <!-- File -->
@@ -865,6 +882,7 @@
     let deferredInstall = null;
 
     const $ = (id) => document.getElementById(id);
+    const youtubeUrlInput = $('youtubeUrlInput'), loadYoutubeBtn = $('loadYoutubeBtn');
     const chooseFileBtn = $('chooseFileBtn'), audioFileInput = $('audioFileInput');
     const fileNameText = $('fileNameText'), fileSizeText = $('fileSizeText');
     const playPreviewBtn = $('playPreviewBtn'), scrubberContainer = $('scrubberContainer');
@@ -966,6 +984,131 @@
     /* =====================================================================
        File selection & audio preparation
        ===================================================================== */
+    async function youtubeApiResolve(url) {
+      const res = await fetch(`/api/youtube-audio?url=${encodeURIComponent(url)}`, { cache: 'no-store' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || `YouTube resolver HTTP ${res.status}`);
+      if (!body?.audioUrl) throw new Error('No audio stream was returned.');
+      return body;
+    }
+
+    async function readResponseBlob(res, totalBytes, onProgress) {
+      if (!res.ok) throw new Error(`Audio download HTTP ${res.status}`);
+      if (!res.body) {
+        const blob = await res.blob();
+        onProgress?.(totalBytes || blob.size, totalBytes || blob.size);
+        return blob;
+      }
+
+      const reader = res.body.getReader();
+      const chunks = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value?.byteLength) {
+          chunks.push(value);
+          received += value.byteLength;
+          onProgress?.(received, totalBytes || 0);
+        }
+      }
+      return new Blob(chunks, { type: res.headers.get('content-type') || 'application/octet-stream' });
+    }
+
+    async function downloadYoutubeDirect(audio) {
+      const res = await fetch(audio.audioUrl, { cache: 'no-store' });
+      return readResponseBlob(res, audio.contentLength || 0, (got, total) => {
+        if (total) setProgress('Downloading audio...', got / total);
+        else setProgress('Downloading audio...');
+      });
+    }
+
+    async function downloadYoutubeViaProxy(audio) {
+      const total = Number(audio.contentLength || 0);
+      if (!Number.isFinite(total) || total <= 0) {
+        throw new Error('The audio stream size is unavailable, so the safe fallback proxy cannot be used.');
+      }
+
+      const chunkSize = 3 * 1024 * 1024;
+      const chunks = [];
+      for (let start = 0; start < total; start += chunkSize) {
+        const end = Math.min(total - 1, start + chunkSize - 1);
+        const res = await fetch('/api/youtube-audio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'proxy',
+            url: audio.audioUrl,
+            range: `bytes=${start}-${end}`,
+            totalLength: total
+          })
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error || `Audio proxy HTTP ${res.status}`);
+        }
+        chunks.push(await res.arrayBuffer());
+        setProgress('Downloading audio...', Math.min(1, end / total));
+      }
+      setProgress('Downloading audio...', 1);
+      return new Blob(chunks, { type: audio.mimeType || 'audio/mp4' });
+    }
+
+    function youtubeFileExtension(mimeType) {
+      const mime = String(mimeType || '').toLowerCase();
+      if (mime.includes('webm')) return '.webm';
+      if (mime.includes('ogg')) return '.ogg';
+      if (mime.includes('aac')) return '.aac';
+      if (mime.includes('mpeg')) return '.mp3';
+      return '.m4a';
+    }
+
+    function safeFileStem(title) {
+      return String(title || 'youtube-podcast')
+        .replace(/[\\/:*?"<>|]/g, ' ')
+        .replace(/\\s+/g, ' ')
+        .trim()
+        .slice(0, 96) || 'youtube-podcast';
+    }
+
+    loadYoutubeBtn.addEventListener('click', async () => {
+      const url = youtubeUrlInput.value.trim();
+      if (!url) { youtubeUrlInput.focus(); showToast('Paste a YouTube URL first'); return; }
+      if (!navigator.onLine) { showToast('You are offline'); return; }
+
+      stopAllPlayback();
+      loadYoutubeBtn.disabled = true;
+      setBusy(true);
+      try {
+        setProgress('Checking YouTube audio stream...');
+        const audio = await youtubeApiResolve(url);
+        const durationText = audio.durationSeconds ? ` · Duration: ${formatTimestamp(audio.durationSeconds)}` : '';
+        setProgress(`Found audio-only stream${durationText}`);
+
+        let blob;
+        try {
+          blob = await downloadYoutubeDirect(audio);
+        } catch (directError) {
+          setProgress('Direct audio fetch blocked; using safe proxy fallback...');
+          blob = await downloadYoutubeViaProxy(audio);
+        }
+
+        if (!blob || !blob.size) throw new Error('The YouTube audio download was empty.');
+
+        const ext = youtubeFileExtension(audio.mimeType);
+        const file = new File([blob], `${safeFileStem(audio.title)}${ext}`, { type: audio.mimeType || blob.type || 'audio/mp4' });
+        loadFile(file);
+        youtubeUrlInput.value = url;
+        showToast('YouTube audio loaded. Ready to transcribe.');
+        setProgress('YouTube audio loaded');
+      } catch (error) {
+        showToast(error?.message || 'Could not load YouTube audio', { sticky: true });
+      } finally {
+        loadYoutubeBtn.disabled = false;
+        setBusy(false);
+      }
+    });
+
     chooseFileBtn.addEventListener('click', () => audioFileInput.click());
     audioFileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) loadFile(f); audioFileInput.value = ''; });
 
@@ -1193,7 +1336,7 @@ ${transcript}`;
         play.className = 'btn-outline'; play.type='button'; play.textContent='▶ Play';
         play.onclick=()=>{ stopAllPlayback(); audioPlayer.currentTime=Math.max(0,clip.start-.05); playStopAt=clip.end+.05; audioPlayer.play().catch(()=>{}); };
         const dl = document.createElement('button');
-        dl.className = 'btn-primary'; dl.type='button'; dl.textContent='Save MP3/WAV';
+        dl.className = 'btn-primary'; dl.type='button'; dl.textContent='Save WAV';
         dl.onclick=()=>downloadAudioRange(clip.start, clip.end, i+1);
         actions.append(play,dl); item.appendChild(actions); clipResultsContainer.appendChild(item);
       });
