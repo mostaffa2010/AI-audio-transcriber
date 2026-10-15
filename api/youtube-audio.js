@@ -39,7 +39,7 @@ function extractVideoId(rawUrl) {
   throw new Error("Could not find a YouTube video ID in that URL.");
 }
 
-const YT_CLIENTS = ["WEB", "ANDROID", "YTMUSIC", "YTMUSIC_ANDROID", "TV_EMBEDDED"];
+const YT_CLIENTS = ["ANDROID_VR", "IOS", "WEB_EMBEDDED", "WEB", "ANDROID", "YTMUSIC", "YTMUSIC_ANDROID", "TV_EMBEDDED"];
 let ytClientPromise = null;
 
 async function getYouTubeClient() {
